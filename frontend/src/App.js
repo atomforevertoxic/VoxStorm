@@ -49,13 +49,8 @@ export default function App() {
         </div>
         <div className="field">
           <label>Методика брейншторма</label>
-          <select
-            value={method}
-            onChange={(e) => setMethod(e.target.value)}
-            disabled
-          >
-            <option value="association">Ассоциативная карта</option>
-          </select>
+          <div>Ассоциативная карта</div>
+          <input type="hidden" value={method} />
         </div>
         <div className="field">
           <label>Участники (опционально)</label>

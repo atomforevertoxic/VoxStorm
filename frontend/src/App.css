@@ -1,36 +1,60 @@
+/* Global reset and body style */
 body {
-  font-family: Arial, sans-serif;
-  background: #f5f9fc;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background: linear-gradient(135deg, #e0f7fa 0%, #ffffff 100%);
   margin: 0;
   padding: 0;
+  color: #333;
 }
 
+/* main card container */
 .container {
-  max-width: 600px;
-  margin: 40px auto;
+  max-width: 700px;
+  margin: 60px auto;
   background: white;
-  padding: 20px;
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  padding: 30px 40px;
+  border-radius: 12px;
+  box-shadow: 0 10px 20px rgba(0,0,0,0.08);
+}
+
+h1 {
+  margin-top: 0;
+  color: #0077b6;
+  text-align: center;
+}
+
+h2 {
+  font-weight: normal;
+  color: #555;
+  text-align: center;
+  margin-bottom: 30px;
 }
 
 .field {
-  margin-bottom: 16px;
+  margin-bottom: 20px;
 }
 
 .field label {
   display: block;
-  margin-bottom: 4px;
-  font-weight: bold;
+  margin-bottom: 6px;
+  font-weight: 600;
+  color: #444;
 }
 
 .field input,
 .field select {
   width: 100%;
-  padding: 8px;
+  padding: 10px 12px;
   border: 1px solid #ccc;
-  border-radius: 4px;
+  border-radius: 6px;
   box-sizing: border-box;
+  transition: border-color 0.2s;
+}
+
+.field input:focus,
+.field select:focus {
+  outline: none;
+  border-color: #0077b6;
 }
 
 .participants-input {
@@ -38,30 +62,69 @@ body {
   gap: 8px;
 }
 
+.participants-input input {
+  flex: 1;
+}
+
 .participants-list {
   list-style: none;
   padding-left: 0;
-  margin-top: 8px;
+  margin-top: 10px;
 }
 
 .participants-list li {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
   background: #e0f7fa;
-  padding: 4px 8px;
-  margin: 2px;
-  border-radius: 4px;
+  color: #023e8a;
+  padding: 6px 10px;
+  margin: 4px;
+  border-radius: 20px;
+  font-size: 14px;
+}
+
+.participants-list li button {
+  background: transparent;
+  border: none;
+  margin-left: 6px;
+  font-weight: bold;
+  color: #023e8a;
+  cursor: pointer;
 }
 
 .start-button {
-  background: #00a8ff;
+  background: #0077b6;
   color: white;
-  padding: 10px 16px;
+  padding: 12px 20px;
   border: none;
-  border-radius: 4px;
+  border-radius: 6px;
   cursor: pointer;
-  font-size: 16px;
+  font-size: 18px;
+  width: 100%;
+  transition: background 0.2s;
 }
 
 .start-button:hover {
-  background: #008ae6;
+  background: #005f8a;
+}
+
+/* subtle underline animation on inputs */
+.field input,
+.field select {
+  position: relative;
+}
+
+.field input::placeholder {
+  color: #aaa;
+}
+
+/* responsive tweaks */
+@media (max-width: 600px) {
+  .container {
+    margin: 20px 10px;
+    padding: 20px;
+  }
+  .start-button {
+    font-size: 16px;
+  }
 }

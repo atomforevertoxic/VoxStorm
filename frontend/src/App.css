@@ -1,0 +1,67 @@
+body {
+  font-family: Arial, sans-serif;
+  background: #f5f9fc;
+  margin: 0;
+  padding: 0;
+}
+
+.container {
+  max-width: 600px;
+  margin: 40px auto;
+  background: white;
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.field {
+  margin-bottom: 16px;
+}
+
+.field label {
+  display: block;
+  margin-bottom: 4px;
+  font-weight: bold;
+}
+
+.field input,
+.field select {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  box-sizing: border-box;
+}
+
+.participants-input {
+  display: flex;
+  gap: 8px;
+}
+
+.participants-list {
+  list-style: none;
+  padding-left: 0;
+  margin-top: 8px;
+}
+
+.participants-list li {
+  display: inline-block;
+  background: #e0f7fa;
+  padding: 4px 8px;
+  margin: 2px;
+  border-radius: 4px;
+}
+
+.start-button {
+  background: #00a8ff;
+  color: white;
+  padding: 10px 16px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 16px;
+}
+
+.start-button:hover {
+  background: #008ae6;
+}

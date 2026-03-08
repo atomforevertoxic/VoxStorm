@@ -1,0 +1,124 @@
+# VoxStorm Project Plan
+
+## Overview
+VoxStorm is a web service for automated brainstorming documentation based on voice input. It converts spoken discussions into structured documents and mind maps using NLP technologies and cloud AI services.
+
+## Current State
+- Frontend: Basic React app with session setup UI
+- Backend: Not implemented yet
+- Database: Not implemented yet
+- AI Integration: Not implemented yet
+- Real-time Communication: Not implemented yet
+
+## Project Phases
+
+### Phase 1: Backend Infrastructure (ASP.NET Core Web API)
+**Timeline:** 2-3 weeks
+- Create backend project structure
+- Implement API controllers for session management
+- Develop business logic services (SessionService, IdeaProcessor, ExportService)
+- Configure Entity Framework Core and database
+- Implement authentication and authorization
+- Add logging and error handling
+
+### Phase 2: Database Design and Implementation
+**Timeline:** 1 week
+- Create database schema for sessions, ideas, and participants
+- Implement migrations and seed data
+- Configure connection strings and database providers
+- Test database operations
+
+### Phase 3: Frontend Enhancement
+**Timeline:** 3-4 weeks
+- Implement session management UI (start, pause, stop)
+- Add real-time speech recognition using Web Speech API
+- Create mind map visualization component
+- Implement idea moderation interface
+- Add session history and loading functionality
+- Create export options (PDF, DOCX, images)
+- Improve UI/UX with Material-UI or similar library
+
+### Phase 4: AI Integration
+**Timeline:** 2 weeks
+- Integrate Yandex GPT or similar AI service for text analysis
+- Implement semantic analysis and idea categorization
+- Develop algorithms for automatic text structuring
+- Create mind map generation from analyzed text
+
+### Phase 5: Real-Time Communication (SignalR)
+**Timeline:** 1 week
+- Implement SignalR Hub for real-time updates
+- Add client-side SignalR integration
+- Test real-time idea synchronization
+
+### Phase 6: Export Functionality
+**Timeline:** 1 week
+- Implement PDF generation
+- Add DOCX export
+- Create image export for mind maps
+- Test export functionality
+
+### Phase 7: Testing and Debugging
+**Timeline:** 2 weeks
+- Write unit tests for backend services
+- Create integration tests for API endpoints
+- Test frontend components
+- Perform user acceptance testing
+- Fix bugs and optimize performance
+
+### Phase 8: Documentation
+**Timeline:** 1 week
+- Update README with project documentation
+- Create user manual
+- Add API documentation using Swagger
+- Prepare technical documentation
+
+## Key Features to Implement
+
+1. **Voice Input and Transcription**
+2. **Automatic Text Structuring**
+3. **Mind Map Generation**
+4. **Session Management**
+5. **Idea Moderation**
+6. **Export Functionality**
+7. **Real-Time Collaboration**
+8. **AI-Powered Analysis**
+
+## Technologies to Use
+
+### Backend
+- C# / ASP.NET Core Web API
+- Entity Framework Core
+- SignalR
+- AutoMapper
+- Serilog
+- FluentValidation
+
+### Frontend
+- React 18
+- Redux Toolkit / Context API
+- Web Speech API
+- SignalR Client
+- D3.js / React Flow (mind map visualization)
+- Material-UI / Ant Design
+- Axios
+
+### AI Services
+- Yandex GPT API
+- Google Gemini API (optional)
+- OpenAI API (optional)
+
+### Database
+- SQLite (development)
+- SQL Server (production)
+
+## Deployment
+- Frontend: Static hosting (Netlify, Vercel)
+- Backend: Azure App Services
+- Database: Azure SQL Database
+
+## Risk Management
+- **API Rate Limits**: Implement retry logic and rate limiting
+- **Speech Recognition Errors**: Add manual correction functionality
+- **AI Model Costs**: Monitor API usage and optimize queries
+- **Performance Issues**: Optimize mind map rendering and API responses

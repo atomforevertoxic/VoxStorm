@@ -5,6 +5,8 @@ export default function App() {
   const [centralTheme, setCentralTheme] = useState('');
   const [participants, setParticipants] = useState([]);
   const [newParticipant, setNewParticipant] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState(null);
 
   const addParticipant = () => {
     if (newParticipant.trim() !== '') {
@@ -17,12 +19,46 @@ export default function App() {
     setParticipants(participants.filter((_, i) => i !== idx));
   };
 
-  const startSession = (e) => {
+  const startSession = async (e) => {
     e.preventDefault();
-    const data = { sessionName, centralTheme, method: 'association', participants };
-    console.log('Starting session with data', data);
-    alert('Session created: ' + JSON.stringify(data, null, 2));
-    // TODO: send to backend API
+    
+    setIsLoading(true);
+    setError(null);
+
+    const data = { 
+      name: sessionName, 
+      centralTheme, 
+      method: 'association', 
+      participants: participants.map(name => ({ name }))
+    };
+
+    try {
+      const response = await fetch('http://localhost:5021/api/sessions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Ошибка при создании сессии: ${response.status} ${response.statusText}`);
+      }
+
+      const result = await response.json();
+      console.log('Session created successfully:', result);
+      alert('Сессия успешно создана!');
+      
+      // Reset form
+      setSessionName('');
+      setCentralTheme('');
+      setParticipants([]);
+    } catch (error) {
+      console.error('Error creating session:', error);
+      setError(error.message);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -114,12 +150,24 @@ export default function App() {
               </div>
             </div>
 
+            {/* Error Message */}
+            {error && (
+              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+                {error}
+              </div>
+            )}
+
             {/* Start Button */}
             <button
               type="submit"
-              className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white py-4 px-6 rounded-lg text-lg font-semibold hover:from-indigo-700 hover:to-purple-700 transition-all transform hover:scale-105 shadow-lg"
+              disabled={isLoading}
+              className={`w-full py-4 px-6 rounded-lg text-lg font-semibold transition-all transform shadow-lg ${
+                isLoading
+                  ? 'bg-gray-400 cursor-not-allowed'
+                  : 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white hover:from-indigo-700 hover:to-purple-700 hover:scale-105'
+              }`}
             >
-              Начать сессию →
+              {isLoading ? 'Создаем сессию...' : 'Начать сессию →'}
             </button>
           </form>
         </div>

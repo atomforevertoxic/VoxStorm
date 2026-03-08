@@ -45,12 +45,36 @@ namespace VoxStorm.Api.Controllers
 
         // POST: api/Sessions
         [HttpPost]
-        public async Task<ActionResult<Session>> PostSession(Session session)
+        public async Task<ActionResult<Session>> PostSession([FromBody] SessionCreateDto sessionDto)
         {
+            var session = new Session
+            {
+                Name = sessionDto.Name,
+                CentralTheme = sessionDto.CentralTheme,
+                Method = sessionDto.Method,
+                CreatedAt = DateTime.Now,
+                Status = "pending",
+                Participants = sessionDto.Participants?.Select(p => new Participant { Name = p.Name }).ToList() ?? new List<Participant>()
+            };
+
             _context.Sessions.Add(session);
             await _context.SaveChangesAsync();
 
             return CreatedAtAction(nameof(GetSession), new { id = session.Id }, session);
+        }
+
+        // DTO for session creation
+        public class SessionCreateDto
+        {
+            public string Name { get; set; }
+            public string CentralTheme { get; set; }
+            public string Method { get; set; }
+            public List<ParticipantDto> Participants { get; set; }
+        }
+
+        public class ParticipantDto
+        {
+            public string Name { get; set; }
         }
 
         // PUT: api/Sessions/5

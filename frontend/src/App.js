@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
+import { BrowserRouter, Routes, Route, useNavigate } from 'react-router-dom';
+import ActiveSession from './pages/ActiveSession';
 
-export default function App() {
+function SessionSetup() {
+  const navigate = useNavigate();
   const [sessionName, setSessionName] = useState('');
   const [centralTheme, setCentralTheme] = useState('');
   const [participants, setParticipants] = useState([]);
@@ -21,14 +24,14 @@ export default function App() {
 
   const startSession = async (e) => {
     e.preventDefault();
-    
+
     setIsLoading(true);
     setError(null);
 
-    const data = { 
-      name: sessionName, 
-      centralTheme, 
-      method: 'association', 
+    const data = {
+      name: sessionName,
+      centralTheme,
+      method: 'association',
       participants: participants.map(name => ({ name }))
     };
 
@@ -47,16 +50,13 @@ export default function App() {
 
       const result = await response.json();
       console.log('Session created successfully:', result);
-      alert('Сессия успешно создана!');
-      
-      // Reset form
-      setSessionName('');
-      setCentralTheme('');
-      setParticipants([]);
+
+      // Navigate to active session page
+      navigate(`/session/${result.id}`);
+
     } catch (error) {
       console.error('Error creating session:', error);
       setError(error.message);
-    } finally {
       setIsLoading(false);
     }
   };
@@ -82,7 +82,7 @@ export default function App() {
           <h2 className="text-2xl font-semibold text-indigo-800 mb-8 text-center">
             Настройка новой сессии брейншторма
           </h2>
-          
+
           <form onSubmit={startSession} className="space-y-6">
             {/* Session Name */}
             <div>
@@ -123,6 +123,7 @@ export default function App() {
                   type="text"
                   value={newParticipant}
                   onChange={(e) => setNewParticipant(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addParticipant())}
                   placeholder="Имя участника"
                   className="flex-1 px-4 py-2 border border-indigo-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
                 />
@@ -192,5 +193,16 @@ export default function App() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function App() {
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<SessionSetup />} />
+        <Route path="/session/:sessionId" element={<ActiveSession />} />
+      </Routes>
+    </BrowserRouter>
   );
 }

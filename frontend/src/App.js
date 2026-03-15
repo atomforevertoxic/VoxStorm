@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
-import { BrowserRouter, Routes, Route, useNavigate } from 'react-router-dom';
-import ActiveSession from './pages/ActiveSession';
 
-function SessionSetup() {
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+
+export default function App() {
   const navigate = useNavigate();
   const [sessionName, setSessionName] = useState('');
   const [centralTheme, setCentralTheme] = useState('');
@@ -25,13 +25,18 @@ function SessionSetup() {
   const startSession = async (e) => {
     e.preventDefault();
 
+    if (participants.length === 0) {
+      setError('Пожалуйста, добавьте хотя бы одного участника');
+      return;
+    }
+
     setIsLoading(true);
     setError(null);
 
-    const data = {
-      name: sessionName,
-      centralTheme,
-      method: 'association',
+    const data = { 
+      name: sessionName, 
+      centralTheme, 
+      method: 'association', 
       participants: participants.map(name => ({ name }))
     };
 
@@ -51,12 +56,12 @@ function SessionSetup() {
       const result = await response.json();
       console.log('Session created successfully:', result);
 
-      // Navigate to active session page
+      // Redirect to the session page
       navigate(`/session/${result.id}`);
-
     } catch (error) {
       console.error('Error creating session:', error);
       setError(error.message);
+    } finally {
       setIsLoading(false);
     }
   };
@@ -82,7 +87,7 @@ function SessionSetup() {
           <h2 className="text-2xl font-semibold text-indigo-800 mb-8 text-center">
             Настройка новой сессии брейншторма
           </h2>
-
+          
           <form onSubmit={startSession} className="space-y-6">
             {/* Session Name */}
             <div>
@@ -116,14 +121,13 @@ function SessionSetup() {
             {/* Participants */}
             <div>
               <label className="block text-sm font-medium text-indigo-700 mb-2">
-                Участники (опционально)
+                Участники <span className="text-red-500">*</span>
               </label>
               <div className="flex gap-2 mb-3">
                 <input
                   type="text"
                   value={newParticipant}
                   onChange={(e) => setNewParticipant(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addParticipant())}
                   placeholder="Имя участника"
                   className="flex-1 px-4 py-2 border border-indigo-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
                 />
@@ -161,9 +165,9 @@ function SessionSetup() {
             {/* Start Button */}
             <button
               type="submit"
-              disabled={isLoading}
+              disabled={isLoading || participants.length === 0}
               className={`w-full py-4 px-6 rounded-lg text-lg font-semibold transition-all transform shadow-lg ${
-                isLoading
+                isLoading || participants.length === 0
                   ? 'bg-gray-400 cursor-not-allowed'
                   : 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white hover:from-indigo-700 hover:to-purple-700 hover:scale-105'
               }`}
@@ -193,16 +197,5 @@ function SessionSetup() {
         </div>
       </div>
     </div>
-  );
-}
-
-export default function App() {
-  return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<SessionSetup />} />
-        <Route path="/session/:sessionId" element={<ActiveSession />} />
-      </Routes>
-    </BrowserRouter>
   );
 }

@@ -205,7 +205,7 @@ export default function ActiveSession() {
 
                 <div className="space-y-2 text-gray-600">
                   <p><span className="font-medium">Название:</span> {session?.name}</p>
-                  <p><span className="font-medium">Метод:</span> {session?.method}</p>
+                  <p><span className="font-medium">Метод:</span> Ассоциативный</p>
                   <p><span className="font-medium">Участников:</span> {session?.participants?.length || 0}</p>
                   <p><span className="font-medium">Идей:</span> {ideas?.length || 0}</p>
                 </div>

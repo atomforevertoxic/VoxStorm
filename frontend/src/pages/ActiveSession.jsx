@@ -22,9 +22,12 @@ export default function ActiveSession() {
         const response = await fetch(`http://localhost:5021/api/sessions/${sessionId}`);
         if (!response.ok) throw new Error('Session not found');
         const data = await response.json();
-        setSession(data);
+        // Normalize participants (EF Core returns $values wrapper)
+        const participants = data.participants?.$values || data.participants || [];
+        const normalizedData = { ...data, participants };
+        setSession(normalizedData);
         // Ensure ideas is always an array
-        setIdeas(Array.isArray(data.ideas) ? data.ideas : []);
+        setIdeas(Array.isArray(data.ideas?.$values) ? data.ideas.$values : Array.isArray(data.ideas) ? data.ideas : []);
         setIsLoading(false);
       } catch (err) {
         setError(err.message);

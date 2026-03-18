@@ -7,6 +7,7 @@ export default function ActiveSession() {
 
   const [session, setSession] = useState(null);
   const [ideas, setIdeas] = useState([]);
+  const [pendingIdeas, setPendingIdeas] = useState([]);
   const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
@@ -70,17 +71,36 @@ export default function ActiveSession() {
     }
   }, [sessionId]);
 
-  // Process accumulated transcript - convert to idea after 3 seconds of silence
-  const processTranscript = useCallback(async () => {
+  // Process accumulated transcript - add to pending list after 3 seconds of silence
+  const processTranscript = useCallback(() => {
     const text = accumulatedTranscriptRef.current.trim();
     if (text) {
-      setIsProcessing(true);
-      await submitIdea(text);
+      const newPendingIdea = {
+        id: Date.now(),
+        text: text,
+        createdAt: new Date().toISOString()
+      };
+      setPendingIdeas(prev => [...prev, newPendingIdea]);
       accumulatedTranscriptRef.current = '';
       setTranscript('');
-      setIsProcessing(false);
     }
-  }, [submitIdea]);
+  }, []);
+
+  // Confirm a pending idea - save to database
+  const confirmPendingIdea = useCallback(async (pendingId) => {
+    const pending = pendingIdeas.find(p => p.id === pendingId);
+    if (!pending) return;
+
+    setIsProcessing(true);
+    await submitIdea(pending.text);
+    setPendingIdeas(prev => prev.filter(p => p.id !== pendingId));
+    setIsProcessing(false);
+  }, [pendingIdeas, submitIdea]);
+
+  // Reject a pending idea - delete from list
+  const rejectPendingIdea = useCallback((pendingId) => {
+    setPendingIdeas(prev => prev.filter(p => p.id !== pendingId));
+  }, []);
 
   // Reset silence timer when speech is detected
   const resetSilenceTimer = useCallback(() => {
@@ -441,6 +461,43 @@ export default function ActiveSession() {
               <p className="text-xs text-gray-400 mt-2">
                 Идея сохранится автоматически после 3 секунд молчания
               </p>
+            </div>
+          )}
+
+          {/* Pending Ideas - require confirmation */}
+          {pendingIdeas.length > 0 && (
+            <div className="mb-4 space-y-3">
+              <h4 className="text-sm font-medium text-gray-500 uppercase tracking-wider">
+                Распознанные идеи ({pendingIdeas.length})
+              </h4>
+              {pendingIdeas.map((pending) => (
+                <div
+                  key={pending.id}
+                  className="flex items-start gap-3 p-4 bg-orange-50 border border-orange-200 rounded-lg"
+                >
+                  <div className="flex-1">
+                    <p className="text-gray-800">{pending.text}</p>
+                    <p className="text-xs text-gray-400 mt-1">
+                      {new Date(pending.createdAt).toLocaleTimeString()}
+                    </p>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => confirmPendingIdea(pending.id)}
+                      disabled={isProcessing}
+                      className="px-3 py-1.5 bg-green-500 text-white text-sm rounded-lg hover:bg-green-600 transition-colors flex items-center gap-1"
+                    >
+                      <span>✓</span> Добавить
+                    </button>
+                    <button
+                      onClick={() => rejectPendingIdea(pending.id)}
+                      className="px-3 py-1.5 bg-red-400 text-white text-sm rounded-lg hover:bg-red-500 transition-colors flex items-center gap-1"
+                    >
+                      <span>✕</span> Отклонить
+                    </button>
+                  </div>
+                </div>
+              ))}
             </div>
           )}
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 
 export default function ActiveSession() {
@@ -9,11 +9,15 @@ export default function ActiveSession() {
   const [ideas, setIdeas] = useState([]);
   const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState('');
+  const [isProcessing, setIsProcessing] = useState(false);
   const [manualInput, setManualInput] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [silenceTimer, setSilenceTimer] = useState(null);
 
   const recognitionRef = useRef(null);
+  const silenceTimeoutRef = useRef(null);
+  const accumulatedTranscriptRef = useRef('');
 
   // Fetch session data
   useEffect(() => {
@@ -37,63 +41,8 @@ export default function ActiveSession() {
     fetchSession();
   }, [sessionId]);
 
-  // Setup Web Speech API
-  useEffect(() => {
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-
-    if (SpeechRecognition) {
-      const recognition = new SpeechRecognition();
-      recognition.continuous = true;
-      recognition.interimResults = true;
-      recognition.lang = 'ru-RU';
-
-      recognition.onresult = (event) => {
-        let finalTranscript = '';
-        for (let i = event.resultIndex; i < event.results.length; i++) {
-          if (event.results[i].isFinal) {
-            finalTranscript += event.results[i][0].transcript;
-          }
-        }
-        if (finalTranscript) {
-          setTranscript(prev => prev + ' ' + finalTranscript);
-        }
-      };
-
-      recognition.onerror = (event) => {
-        console.error('Speech recognition error:', event.error);
-        setIsListening(false);
-      };
-
-      recognition.onend = () => {
-        setIsListening(false);
-      };
-
-      recognitionRef.current = recognition;
-    }
-
-    return () => {
-      if (recognitionRef.current) {
-        recognitionRef.current.stop();
-      }
-    };
-  }, []);
-
-  const toggleVoiceInput = () => {
-    if (!recognitionRef.current) {
-      alert('Голосовой ввод не поддерживается в этом браузере');
-      return;
-    }
-
-    if (isListening) {
-      recognitionRef.current.stop();
-      setIsListening(false);
-    } else {
-      recognitionRef.current.start();
-      setIsListening(true);
-    }
-  };
-
-  const submitIdea = async (text) => {
+  // Submit idea to API
+  const submitIdea = useCallback(async (text, clearManual = false) => {
     if (!text.trim()) return;
 
     try {
@@ -112,20 +61,140 @@ export default function ActiveSession() {
 
       const newIdea = await response.json();
       setIdeas(prevIdeas => [...(prevIdeas || []), newIdea]);
-      setTranscript('');
-      setManualInput('');
+
+      if (clearManual) {
+        setManualInput('');
+      }
     } catch (err) {
       console.error('Error adding idea:', err);
+    }
+  }, [sessionId]);
+
+  // Process accumulated transcript - convert to idea after 3 seconds of silence
+  const processTranscript = useCallback(async () => {
+    const text = accumulatedTranscriptRef.current.trim();
+    if (text) {
+      setIsProcessing(true);
+      await submitIdea(text);
+      accumulatedTranscriptRef.current = '';
+      setTranscript('');
+      setIsProcessing(false);
+    }
+  }, [submitIdea]);
+
+  // Reset silence timer when speech is detected
+  const resetSilenceTimer = useCallback(() => {
+    if (silenceTimeoutRef.current) {
+      clearTimeout(silenceTimeoutRef.current);
+    }
+
+    silenceTimeoutRef.current = setTimeout(() => {
+      // 3 seconds of silence - process the accumulated transcript
+      processTranscript();
+    }, 3000);
+  }, [processTranscript]);
+
+  // Setup Web Speech API with continuous listening and silence detection
+  useEffect(() => {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+    if (SpeechRecognition) {
+      const createRecognition = () => {
+        const recognition = new SpeechRecognition();
+        recognition.continuous = true;
+        recognition.interimResults = true;
+        recognition.lang = 'ru-RU';
+
+        recognition.onresult = (event) => {
+          let finalTranscript = '';
+          let interimTranscript = '';
+
+          for (let i = event.resultIndex; i < event.results.length; i++) {
+            const result = event.results[i];
+            if (result.isFinal) {
+              finalTranscript += result[0].transcript + ' ';
+            } else {
+              interimTranscript += result[0].transcript;
+            }
+          }
+
+          // Accumulate final transcripts
+          if (finalTranscript) {
+            accumulatedTranscriptRef.current += finalTranscript;
+            // Show current accumulated text + interim
+            setTranscript(accumulatedTranscriptRef.current.trim() + (interimTranscript ? ' ' + interimTranscript : ''));
+            // Reset silence timer on new speech
+            resetSilenceTimer();
+          } else if (interimTranscript) {
+            // Just show interim results while speaking
+            setTranscript(accumulatedTranscriptRef.current.trim() + ' ' + interimTranscript);
+          }
+        };
+
+        recognition.onerror = (event) => {
+          console.error('Speech recognition error:', event.error);
+          // Don't stop on common errors like 'no-speech' - restart instead
+          if (event.error !== 'no-speech' && event.error !== 'aborted') {
+            setIsListening(false);
+          }
+        };
+
+        recognition.onend = () => {
+          // Restart recognition to keep continuous listening
+          if (isListening && recognitionRef.current) {
+            try {
+              recognitionRef.current.start();
+            } catch (e) {
+              console.log('Recognition restart failed:', e);
+            }
+          }
+        };
+
+        return recognition;
+      };
+
+      recognitionRef.current = createRecognition();
+    }
+
+    return () => {
+      if (recognitionRef.current) {
+        recognitionRef.current.stop();
+      }
+      if (silenceTimeoutRef.current) {
+        clearTimeout(silenceTimeoutRef.current);
+      }
+    };
+  }, [isListening, resetSilenceTimer]);
+
+  const toggleVoiceInput = () => {
+    if (!recognitionRef.current) {
+      alert('Голосовой ввод не поддерживается в этом браузере');
+      return;
+    }
+
+    if (isListening) {
+      // Stop listening - process any remaining transcript
+      recognitionRef.current.stop();
+      setIsListening(false);
+      if (silenceTimeoutRef.current) {
+        clearTimeout(silenceTimeoutRef.current);
+      }
+      // Submit any remaining text
+      processTranscript();
+    } else {
+      // Clear previous transcript and start fresh
+      accumulatedTranscriptRef.current = '';
+      setTranscript('');
+      recognitionRef.current.start();
+      setIsListening(true);
+      // Start silence timer
+      resetSilenceTimer();
     }
   };
 
   const handleManualSubmit = (e) => {
     e.preventDefault();
-    submitIdea(manualInput);
-  };
-
-  const handleVoiceSubmit = () => {
-    submitIdea(transcript);
+    submitIdea(manualInput, true);
   };
 
   const finishSession = async () => {
@@ -345,32 +414,33 @@ export default function ActiveSession() {
           <div className="mb-4 flex items-center gap-4">
             <button
               onClick={toggleVoiceInput}
+              disabled={isProcessing}
               className={`flex items-center gap-2 px-6 py-3 rounded-lg font-medium transition-all ${
-                isListening
+                isProcessing
+                  ? 'bg-gray-400 text-white cursor-not-allowed'
+                  : isListening
                   ? 'bg-red-500 text-white animate-pulse'
                   : 'bg-indigo-600 text-white hover:bg-indigo-700'
               }`}
             >
-              <span>{isListening ? '⏹ Стоп' : '🎤 Голосовой ввод'}</span>
+              <span>{isProcessing ? '⏳ Сохранение...' : isListening ? '⏹ Стоп' : '🎤 Голосовой ввод'}</span>
             </button>
 
             {isListening && (
-              <span className="text-red-500 font-medium animate-pulse">
-                Слушаю... Говорите
+              <span className="text-green-600 font-medium animate-pulse flex items-center gap-2">
+                <span className="w-2 h-2 bg-green-500 rounded-full"></span>
+                Слушаю... Говорите (3 сек молчания = авто-сохранение)
               </span>
             )}
           </div>
 
-          {/* Transcript Display */}
+          {/* Transcript Display - Show while capturing */}
           {transcript && (
             <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
               <p className="text-gray-700">{transcript}</p>
-              <button
-                onClick={handleVoiceSubmit}
-                className="mt-2 bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600"
-              >
-                ✓ Добавить идею
-              </button>
+              <p className="text-xs text-gray-400 mt-2">
+                Идея сохранится автоматически после 3 секунд молчания
+              </p>
             </div>
           )}
 

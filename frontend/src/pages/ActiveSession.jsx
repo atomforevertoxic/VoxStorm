@@ -15,6 +15,11 @@ export default function ActiveSession() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [silenceTimer, setSilenceTimer] = useState(null);
+  const [scale, setScale] = useState(1);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const containerRef = useRef(null);
 
   const recognitionRef = useRef(null);
   const silenceTimeoutRef = useRef(null);
@@ -234,6 +239,41 @@ export default function ActiveSession() {
     }
   };
 
+  // Zoom controls
+  const zoomIn = () => setScale(prev => Math.min(prev + 0.25, 3));
+  const zoomOut = () => setScale(prev => Math.max(prev - 0.25, 0.5));
+  const resetView = () => {
+    setScale(1);
+    setPan({ x: 0, y: 0 });
+  };
+
+  // Pan handlers
+  const handleMouseDown = (e) => {
+    if (e.target === containerRef.current || e.target.closest('.mind-map-content')) {
+      setIsDragging(true);
+      setDragStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
+    }
+  };
+
+  const handleMouseMove = (e) => {
+    if (isDragging) {
+      setPan({
+        x: e.clientX - dragStart.x,
+        y: e.clientY - dragStart.y
+      });
+    }
+  };
+
+  const handleMouseUp = () => {
+    setIsDragging(false);
+  };
+
+  const handleWheel = (e) => {
+    e.preventDefault();
+    const delta = e.deltaY > 0 ? -0.1 : 0.1;
+    setScale(prev => Math.max(0.5, Math.min(3, prev + delta)));
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
@@ -323,94 +363,172 @@ export default function ActiveSession() {
 
           {/* Center - Mind Map Visualization */}
           <div className="lg:col-span-2">
-            <div className="bg-white rounded-2xl shadow-xl p-6 min-h-[600px] relative overflow-hidden">
+            <div className="bg-white rounded-2xl shadow-xl p-4 min-h-[600px] relative overflow-hidden flex flex-col">
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-xl font-semibold text-indigo-800">
-                  💡 Интеллект-карта
+                  Интеллект-карта
                 </h2>
-                <span className="bg-rose-100 text-rose-700 px-3 py-1 rounded-full text-sm font-medium">
-                  {session?.centralTheme || 'Без темы'}
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="bg-indigo-100 text-indigo-700 px-3 py-1 rounded-full text-sm font-medium">
+                    {session?.centralTheme || 'Без темы'}
+                  </span>
+                </div>
+              </div>
+
+              {/* Zoom Controls */}
+              <div className="flex items-center gap-2 mb-4">
+                <button
+                  onClick={zoomOut}
+                  className="w-8 h-8 bg-indigo-100 text-indigo-700 rounded-lg hover:bg-indigo-200 transition-colors flex items-center justify-center font-bold"
+                  title="Увеличить"
+                >
+                  −
+                </button>
+                <span className="text-sm text-gray-600 w-14 text-center">{Math.round(scale * 100)}%</span>
+                <button
+                  onClick={zoomIn}
+                  className="w-8 h-8 bg-indigo-100 text-indigo-700 rounded-lg hover:bg-indigo-200 transition-colors flex items-center justify-center font-bold"
+                  title="Уменьшить"
+                >
+                  +
+                </button>
+                <button
+                  onClick={resetView}
+                  className="ml-2 px-3 py-1 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition-colors text-sm"
+                  title="Сбросить вид"
+                >
+                  Сбросить
+                </button>
+                <span className="text-xs text-gray-400 ml-2">Колёсико мыши или перетаскивание для навигации</span>
               </div>
 
               {/* Mind Map Container */}
               {Array.isArray(ideas) && (ideas.length > 0 || session?.centralTheme) ? (
-                <div className="relative w-full h-[500px]">
-                  {/* SVG for connection lines - from center to all ideas */}
-                  <svg className="absolute inset-0 w-full h-full pointer-events-none">
+                <div
+                  ref={containerRef}
+                  className="relative flex-1 rounded-xl bg-gradient-to-br from-slate-50 to-indigo-50 overflow-hidden cursor-grab active:cursor-grabbing"
+                  style={{
+                    height: '500px'
+                  }}
+                  onMouseDown={handleMouseDown}
+                  onMouseMove={handleMouseMove}
+                  onMouseUp={handleMouseUp}
+                  onMouseLeave={handleMouseUp}
+                  onWheel={handleWheel}
+                >
+                  {/* Scaled content */}
+                  <div
+                    className="mind-map-content absolute inset-0"
+                    style={{
+                      transform: `scale(${scale}) translate(${pan.x / scale}px, ${pan.y / scale}px)`,
+                      transformOrigin: 'center center',
+                      transition: isDragging ? 'none' : 'transform 0.1s ease-out'
+                    }}
+                  >
+                    {/* SVG for connection lines */}
+                    <svg className="absolute inset-0 w-full h-full pointer-events-none">
+                      <defs>
+                        <linearGradient id="lineGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                          <stop offset="0%" stopColor="#6366f1" stopOpacity="0.7" />
+                          <stop offset="100%" stopColor="#8b5cf6" stopOpacity="0.35" />
+                        </linearGradient>
+                      </defs>
+                      {ideas.map((idea, idx) => {
+                        const count = ideas.length || 1;
+                        const angle = (idx * (360 / count)) * (Math.PI / 180);
+                        const radius = 160;
+                        const centerX = '50%';
+                        const centerY = '50%';
+                        const lineX = `calc(50% + ${radius * Math.cos(angle)}px)`;
+                        const lineY = `calc(50% + ${radius * Math.sin(angle)}px)`;
+                        return (
+                          <line
+                            key={`line-${idx}`}
+                            x1={centerX}
+                            y1={centerY}
+                            x2={lineX}
+                            y2={lineY}
+                            stroke="url(#lineGradient)"
+                            strokeWidth="3"
+                            strokeLinecap="round"
+                          />
+                        );
+                      })}
+                    </svg>
+
+                    {/* Central Theme - Root Node (MAIN ELEMENT) */}
+                    <div className="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2 z-20">
+                      <div className="relative min-w-[240px]">
+                        {/* Glow effect */}
+                        <div className="absolute -inset-3 bg-gradient-to-br from-indigo-500 via-violet-500 to-purple-500 rounded-3xl blur-lg opacity-40 animate-pulse"></div>
+                        {/* Main card */}
+                        <div className="relative bg-gradient-to-br from-indigo-600 via-violet-500 to-purple-600 rounded-2xl p-6 shadow-2xl border-2 border-white/30 overflow-hidden">
+                          {/* Shine effect */}
+                          <div className="absolute inset-0 bg-gradient-to-tr from-white/10 via-transparent to-white/20"></div>
+                          {/* Inner glow border */}
+                          <div className="absolute inset-0 rounded-2xl ring-4 ring-white/20"></div>
+                          <div className="relative text-center">
+                            <div className="flex items-center justify-center gap-2 mb-2">
+                              <svg className="w-6 h-6 text-indigo-200" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"/>
+                              </svg>
+                              <span className="text-xs font-bold text-indigo-100 uppercase tracking-widest">Центральная тема</span>
+                              <svg className="w-6 h-6 text-indigo-200" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"/>
+                              </svg>
+                            </div>
+                            <h3 className="text-2xl font-extrabold text-white drop-shadow-lg leading-tight">
+                              {session?.centralTheme || 'Без темы'}
+                            </h3>
+                            <div className="mt-3 flex items-center justify-center gap-3">
+                              <div className="h-1 w-8 bg-white/30 rounded-full"></div>
+                              <div className="h-1 w-12 bg-white/50 rounded-full"></div>
+                              <div className="h-1 w-8 bg-white/30 rounded-full"></div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Idea Nodes - Connected to center theme */}
                     {ideas.map((idea, idx) => {
                       const count = ideas.length || 1;
                       const angle = (idx * (360 / count)) * (Math.PI / 180);
                       const radius = 160;
-                      const centerX = 50;
-                      const centerY = 50;
-                      const lineX = centerX + radius * Math.cos(angle);
-                      const lineY = centerY + radius * Math.sin(angle);
+                      const offsetX = Math.cos(angle) * radius;
+                      const offsetY = Math.sin(angle) * radius;
+
                       return (
-                        <line
-                          key={`line-${idx}`}
-                          x1={`${centerX}%`}
-                          y1={`${centerY}%`}
-                          x2={`${lineX}%`}
-                          y2={`${lineY}%`}
-                          stroke="#10b981"
-                          strokeWidth="3"
-                          strokeOpacity="0.6"
-                        />
-                      );
-                    })}
-                  </svg>
-
-                  {/* Central Theme - Root Node (MAIN ELEMENT) */}
-                  <div className="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2 z-20">
-                    <div className="bg-gradient-to-br from-rose-500 via-red-500 to-rose-600 rounded-2xl p-6 shadow-2xl border-4 border-white ring-8 ring-rose-200 min-w-[220px]">
-                      <div className="text-center">
-                        <span className="text-xs font-bold text-rose-100 uppercase tracking-wider">★ Центральная тема</span>
-                        <h3 className="text-2xl font-extrabold text-white mt-1">
-                          {session?.centralTheme || 'Без темы'}
-                        </h3>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Idea Nodes - Connected to center theme */}
-                  {ideas.map((idea, idx) => {
-                    const count = ideas.length || 1;
-                    const angle = (idx * (360 / count)) * (Math.PI / 180);
-                    const radius = 160;
-                    const offsetX = Math.cos(angle) * radius;
-                    const offsetY = Math.sin(angle) * radius;
-
-                    return (
-                      <div
-                        key={idea.id || idx}
-                        className="absolute transform -translate-x-1/2 -translate-y-1/2 transition-all hover:scale-110 hover:z-30"
-                        style={{
-                          left: `calc(50% + ${offsetX}px)`,
-                          top: `calc(50% + ${offsetY}px)`
-                        }}
-                      >
-                        <div className="bg-gradient-to-br from-emerald-50 to-teal-50 rounded-xl p-4 shadow-lg border-2 border-emerald-200 hover:border-emerald-400 hover:shadow-xl transition-all max-w-[200px]">
-                          <p className="text-gray-800 text-sm font-medium" style={{
-                            display: '-webkit-box',
-                            WebkitLineClamp: 3,
-                            WebkitBoxOrient: 'vertical',
-                            overflow: 'hidden'
-                          }}>{idea.text}</p>
-                          <div className="mt-2 flex items-center justify-between">
-                            <span className="text-xs text-gray-400">
-                              {idea.createdAt ? new Date(idea.createdAt).toLocaleTimeString() : ''}
-                            </span>
-                            {idea.category && (
-                              <span className="bg-purple-100 text-purple-700 px-2 py-0.5 rounded text-xs">
-                                {idea.category}
+                        <div
+                          key={idea.id || idx}
+                          className="absolute transform -translate-x-1/2 -translate-y-1/2 transition-all hover:scale-110 hover:z-30"
+                          style={{
+                            left: `calc(50% + ${offsetX}px)`,
+                            top: `calc(50% + ${offsetY}px)`
+                          }}
+                        >
+                          <div className="bg-gradient-to-br from-emerald-50 to-teal-50 rounded-xl p-4 shadow-lg border-2 border-emerald-200 hover:border-emerald-400 hover:shadow-xl transition-all max-w-[200px]">
+                            <p className="text-gray-800 text-sm font-medium" style={{
+                              display: '-webkit-box',
+                              WebkitLineClamp: 3,
+                              WebkitBoxOrient: 'vertical',
+                              overflow: 'hidden'
+                            }}>{idea.text}</p>
+                            <div className="mt-2 flex items-center justify-between">
+                              <span className="text-xs text-gray-400">
+                                {idea.createdAt ? new Date(idea.createdAt).toLocaleTimeString() : ''}
                               </span>
-                            )}
+                              {idea.category && (
+                                <span className="bg-purple-100 text-purple-700 px-2 py-0.5 rounded text-xs">
+                                  {idea.category}
+                                </span>
+                              )}
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    })}
+                  </div>
                 </div>
               ) : (
                 <div className="flex flex-col items-center justify-center h-64 text-gray-400">

@@ -1,2 +1,21 @@
-/* Tailwind directives are not used when loading from CDN. 
+/* Tailwind directives are not used when loading from CDN.
    The CDN script injects the necessary styles automatically. */
+
+/* Animation for newly added ideas on mind map */
+@keyframes popIn {
+  0% {
+    transform: translate(-50%, -50%) scale(0);
+    opacity: 0;
+  }
+  50% {
+    transform: translate(-50%, -50%) scale(1.2);
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+  }
+}
+
+.idea-node-new {
+  animation: popIn 0.4s ease-out forwards;
+}

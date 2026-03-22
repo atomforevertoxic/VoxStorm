@@ -52,27 +52,41 @@ export default function ActiveSession() {
     if (!text.trim()) return;
 
     try {
+      const payload = {
+        text: text.trim(),
+        sessionId: parseInt(sessionId),
+        category: ''
+      };
+      console.log('Sending payload:', payload);
+
       const response = await fetch('http://localhost:5021/api/ideas', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          text: text.trim(),
-          sessionId: parseInt(sessionId),
-          participantId: null,
-          category: null
-        })
+        body: JSON.stringify(payload)
       });
 
-      if (!response.ok) throw new Error('Failed to add idea');
+      console.log('Response status:', response.status);
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Error response:', errorText);
+        throw new Error('Failed to add idea: ' + errorText);
+      }
 
       const newIdea = await response.json();
-      setIdeas(prevIdeas => [...(prevIdeas || []), newIdea]);
+      console.log('New idea added:', newIdea);
+      setIdeas(prevIdeas => {
+        console.log('Previous ideas:', prevIdeas);
+        const updated = [...(prevIdeas || []), newIdea];
+        console.log('Updated ideas:', updated);
+        return updated;
+      });
 
       if (clearManual) {
         setManualInput('');
       }
     } catch (err) {
       console.error('Error adding idea:', err);
+      alert('Ошибка при добавлении идеи: ' + err.message);
     }
   }, [sessionId]);
 
@@ -93,13 +107,18 @@ export default function ActiveSession() {
 
   // Confirm a pending idea - save to database
   const confirmPendingIdea = useCallback(async (pendingId) => {
+    console.log('Confirming pending idea:', pendingId);
     const pending = pendingIdeas.find(p => p.id === pendingId);
+    console.log('Pending idea found:', pending);
     if (!pending) return;
 
     setIsProcessing(true);
+    console.log('Calling submitIdea with text:', pending.text);
     await submitIdea(pending.text);
+    console.log('submitIdea completed');
     setPendingIdeas(prev => prev.filter(p => p.id !== pendingId));
     setIsProcessing(false);
+    console.log('Confirming done');
   }, [pendingIdeas, submitIdea]);
 
   // Reject a pending idea - delete from list
@@ -219,7 +238,15 @@ export default function ActiveSession() {
 
   const handleManualSubmit = (e) => {
     e.preventDefault();
-    submitIdea(manualInput, true);
+    if (!manualInput.trim()) return;
+
+    const newPendingIdea = {
+      id: Date.now(),
+      text: manualInput.trim(),
+      createdAt: new Date().toISOString()
+    };
+    setPendingIdeas(prev => [...prev, newPendingIdea]);
+    setManualInput('');
   };
 
   const finishSession = async () => {
@@ -549,7 +576,7 @@ export default function ActiveSession() {
           </h3>
 
           {/* Voice Input Status */}
-          <div className="mb-4 flex items-center gap-4">
+          <div className="mb-4 flex items-center gap-4 flex-wrap">
             <button
               onClick={toggleVoiceInput}
               disabled={isProcessing}
@@ -564,10 +591,28 @@ export default function ActiveSession() {
               <span>{isProcessing ? '⏳ Сохранение...' : isListening ? '⏹ Стоп' : '🎤 Голосовой ввод'}</span>
             </button>
 
+            {/* Fix button - appears when there's accumulated transcript */}
+            {isListening && transcript && (
+              <button
+                onClick={() => {
+                  if (silenceTimeoutRef.current) {
+                    clearTimeout(silenceTimeoutRef.current);
+                  }
+                  processTranscript();
+                }}
+                className="flex items-center gap-2 px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                </svg>
+                Зафиксировать
+              </button>
+            )}
+
             {isListening && (
               <span className="text-green-600 font-medium animate-pulse flex items-center gap-2">
                 <span className="w-2 h-2 bg-green-500 rounded-full"></span>
-                Слушаю... Говорите (3 сек молчания = авто-сохранение)
+                Слушаю...
               </span>
             )}
           </div>
@@ -577,7 +622,7 @@ export default function ActiveSession() {
             <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
               <p className="text-gray-700">{transcript}</p>
               <p className="text-xs text-gray-400 mt-2">
-                Идея сохранится автоматически после 3 секунд молчания
+                Идея сохранится автоматически после 3 секунд молчания или по кнопке "Зафиксировать"
               </p>
             </div>
           )}

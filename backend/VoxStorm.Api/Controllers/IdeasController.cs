@@ -47,12 +47,33 @@ namespace VoxStorm.Api.Controllers
 
         // POST: api/Ideas
         [HttpPost]
-        public async Task<ActionResult<Idea>> PostIdea(Idea idea)
+        public async Task<ActionResult<Idea>> PostIdea([FromBody] CreateIdeaDto dto)
         {
-            _context.Ideas.Add(idea);
-            await _context.SaveChangesAsync();
+            Console.WriteLine($"PostIdea called with: Text={dto.Text}, SessionId={dto.SessionId}, ParticipantId={dto.ParticipantId}, Category={dto.Category}");
 
-            return CreatedAtAction(nameof(GetIdea), new { id = idea.Id }, idea);
+            try
+            {
+                var idea = new Idea
+                {
+                    Text = dto.Text,
+                    SessionId = dto.SessionId,
+                    ParticipantId = dto.ParticipantId,
+                    Category = dto.Category,
+                    ParentIdeaId = dto.ParentIdeaId,
+                    CreatedAt = DateTime.Now
+                };
+
+                _context.Ideas.Add(idea);
+                await _context.SaveChangesAsync();
+                Console.WriteLine($"Idea saved successfully with Id={idea.Id}");
+                return CreatedAtAction(nameof(GetIdea), new { id = idea.Id }, idea);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error saving idea: {ex.Message}");
+                Console.WriteLine($"Inner exception: {ex.InnerException?.Message}");
+                throw;
+            }
         }
 
         // PUT: api/Ideas/5

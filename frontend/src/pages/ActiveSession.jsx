@@ -260,7 +260,7 @@ export default function ActiveSession() {
           endedAt: new Date().toISOString()
         })
       });
-      navigate('/');
+      navigate(`/session/${sessionId}/recap`);
     } catch (err) {
       console.error('Error finishing session:', err);
     }

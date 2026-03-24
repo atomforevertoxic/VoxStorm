@@ -43,6 +43,78 @@ namespace VoxStorm.Api.Controllers
             return session;
         }
 
+        // GET: api/Sessions/5/stats
+        [HttpGet("{id}/stats")]
+        public async Task<ActionResult<SessionStatsDto>> GetSessionStats(int id)
+        {
+            var session = await _context.Sessions
+                .Include(s => s.Participants)
+                .Include(s => s.Ideas)
+                .FirstOrDefaultAsync(s => s.Id == id);
+
+            if (session == null)
+            {
+                return NotFound();
+            }
+
+            var ideas = session.Ideas.ToList();
+            var duration = session.EndedAt.HasValue && session.StartedAt.HasValue
+                ? session.EndedAt.Value - session.StartedAt.Value
+                : (session.EndedAt.HasValue ? session.EndedAt.Value - session.CreatedAt : TimeSpan.Zero);
+
+            var categories = ideas
+                .Where(i => !string.IsNullOrEmpty(i.Category))
+                .GroupBy(i => i.Category)
+                .ToDictionary(g => g.Key, g => g.Count());
+
+            var participantIdeas = ideas
+                .Where(i => i.ParticipantId.HasValue)
+                .GroupBy(i => i.ParticipantId)
+                .ToDictionary(g => g.Key.Value, g => g.Count());
+
+            var stats = new SessionStatsDto
+            {
+                SessionId = session.Id,
+                SessionName = session.Name,
+                CentralTheme = session.CentralTheme,
+                Status = session.Status,
+                CreatedAt = session.CreatedAt,
+                StartedAt = session.StartedAt,
+                EndedAt = session.EndedAt,
+                DurationSeconds = (int)duration.TotalSeconds,
+                TotalIdeas = ideas.Count,
+                ApprovedIdeas = ideas.Count(i => i.IsApproved),
+                PendingIdeas = ideas.Count(i => !i.IsApproved),
+                ParticipantCount = session.Participants.Count,
+                Categories = categories,
+                IdeasPerParticipant = participantIdeas,
+                Ideas = ideas.OrderByDescending(i => i.CreatedAt).ToList(),
+                Participants = session.Participants.ToList()
+            };
+
+            return stats;
+        }
+
+        public class SessionStatsDto
+        {
+            public int SessionId { get; set; }
+            public string SessionName { get; set; }
+            public string CentralTheme { get; set; }
+            public string Status { get; set; }
+            public DateTime CreatedAt { get; set; }
+            public DateTime? StartedAt { get; set; }
+            public DateTime? EndedAt { get; set; }
+            public int DurationSeconds { get; set; }
+            public int TotalIdeas { get; set; }
+            public int ApprovedIdeas { get; set; }
+            public int PendingIdeas { get; set; }
+            public int ParticipantCount { get; set; }
+            public Dictionary<string, int> Categories { get; set; }
+            public Dictionary<int, int> IdeasPerParticipant { get; set; }
+            public List<Idea> Ideas { get; set; }
+            public List<Participant> Participants { get; set; }
+        }
+
         // POST: api/Sessions
         [HttpPost]
         public async Task<ActionResult<Session>> PostSession([FromBody] SessionCreateDto sessionDto)

@@ -124,3 +124,11 @@ Desktop.ini
 
 # Additional project-specific
 # Add any further ignores below as needed
+
+# SQLite
+*.db
+*.db-shm
+*.db-wal
+
+# Frontend build (already generated, not source)
+frontend/build/

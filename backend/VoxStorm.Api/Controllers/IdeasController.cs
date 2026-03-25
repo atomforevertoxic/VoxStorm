@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using VoxStorm.Api.Data;
 using VoxStorm.Api.Models;
+using VoxStorm.Api.Services;
 
 namespace VoxStorm.Api.Controllers
 {
@@ -11,9 +12,49 @@ namespace VoxStorm.Api.Controllers
     {
         private readonly AppDbContext _context;
 
-        public IdeasController(AppDbContext context)
+        public IdeasController(AppDbContext context, ILlmService llmService)
         {
             _context = context;
+            _llmService = llmService;
+        }
+
+        private readonly ILlmService _llmService;
+
+        // POST: api/Ideas/process-raw
+        [HttpPost("process-raw")]
+        public async Task<ActionResult<ProcessedIdeasResponseDto>> ProcessRawTranscript([FromBody] ProcessRawTranscriptDto dto)
+        {
+            Console.WriteLine($"ProcessRawTranscript called with transcript length: {dto.Transcript?.Length ?? 0}");
+
+            try
+            {
+                var session = await _context.Sessions.FindAsync(dto.SessionId);
+                var centralTheme = session?.CentralTheme ?? "brainstorming";
+
+                var processedIdeas = await _llmService.ProcessTranscriptAsync(
+                    dto.Transcript ?? "",
+                    centralTheme,
+                    dto.SessionId
+                );
+
+                var response = new ProcessedIdeasResponseDto
+                {
+                    Ideas = processedIdeas.Select(i => new IdeaDto
+                    {
+                        Text = i.Text,
+                        Category = i.Category,
+                        ParentIdeaId = i.ParentIdeaId
+                    }).ToList()
+                };
+
+                Console.WriteLine($"LLM returned {response.Ideas.Count} ideas");
+                return Ok(response);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error processing transcript: {ex.Message}");
+                return StatusCode(500, new { error = "Failed to process transcript", details = ex.Message });
+            }
         }
 
         // GET: api/Ideas

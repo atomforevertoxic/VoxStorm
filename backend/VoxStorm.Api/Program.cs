@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using VoxStorm.Api.Data;
 using VoxStorm.Api.Models;
+using VoxStorm.Api.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -10,12 +11,16 @@ builder.Services.AddControllers()
     {
         options.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.Preserve;
         options.JsonSerializerOptions.MaxDepth = 64;
+        options.JsonSerializerOptions.PropertyNameCaseInsensitive = true;
     });
 builder.Services.AddOpenApi();
 
 // Configure Entity Framework Core with SQLite
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+// Register LLM service
+builder.Services.AddSingleton<ILlmService>(sp => LlmServiceFactory.Create(sp.GetRequiredService<IConfiguration>()));
 
 // Add CORS policy for frontend
 builder.Services.AddCors(options =>

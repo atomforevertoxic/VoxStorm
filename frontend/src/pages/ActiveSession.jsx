@@ -14,6 +14,8 @@ export default function ActiveSession() {
   const [manualInput, setManualInput] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [aiEnhancementEnabled, setAiEnhancementEnabled] = useState(false);
+  const [isLLmProcessing, setIsLLmProcessing] = useState(false);
   const [silenceTimer, setSilenceTimer] = useState(null);
   const [scale, setScale] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
@@ -94,16 +96,64 @@ export default function ActiveSession() {
   const processTranscript = useCallback(() => {
     const text = accumulatedTranscriptRef.current.trim();
     if (text) {
-      const newPendingIdea = {
-        id: Date.now(),
-        text: text,
-        createdAt: new Date().toISOString()
-      };
-      setPendingIdeas(prev => [...prev, newPendingIdea]);
-      accumulatedTranscriptRef.current = '';
-      setTranscript('');
+      if (aiEnhancementEnabled) {
+        // Call LLM to process raw transcript into structured ideas
+        setIsLLmProcessing(true);
+        fetch('http://localhost:5021/api/ideas/process-raw', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            Transcript: text,
+            SessionId: parseInt(sessionId)
+          })
+        })
+        .then(res => {
+          if (!res.ok) throw new Error('LLM processing failed');
+          return res.json();
+        })
+        .then(data => {
+          console.log('LLM processed ideas:', data);
+          // Normalize ideas - EF Core may wrap arrays in $values
+          const ideasArray = data.ideas?.$values || (Array.isArray(data.ideas) ? data.ideas : []);
+          if (ideasArray.length > 0) {
+            const newPendingIdeas = ideasArray.map((idea, idx) => ({
+              id: Date.now() + idx,
+              text: idea.text,
+              createdAt: new Date().toISOString(),
+              category: idea.category
+            }));
+            setPendingIdeas(prev => [...prev, ...newPendingIdeas]);
+          }
+          accumulatedTranscriptRef.current = '';
+          setTranscript('');
+          setIsLLmProcessing(false);
+        })
+        .catch(err => {
+          console.error('LLM processing error:', err);
+          // Fallback: add raw text as single idea
+          const newPendingIdea = {
+            id: Date.now(),
+            text: text,
+            createdAt: new Date().toISOString()
+          };
+          setPendingIdeas(prev => [...prev, newPendingIdea]);
+          accumulatedTranscriptRef.current = '';
+          setTranscript('');
+          setIsLLmProcessing(false);
+        });
+      } else {
+        // Original flow: add raw text as single pending idea
+        const newPendingIdea = {
+          id: Date.now(),
+          text: text,
+          createdAt: new Date().toISOString()
+        };
+        setPendingIdeas(prev => [...prev, newPendingIdea]);
+        accumulatedTranscriptRef.current = '';
+        setTranscript('');
+      }
     }
-  }, []);
+  }, [aiEnhancementEnabled, sessionId]);
 
   // Confirm a pending idea - save to database
   const confirmPendingIdea = useCallback(async (pendingId) => {
@@ -210,6 +260,21 @@ export default function ActiveSession() {
     };
   }, [isListening, resetSilenceTimer]);
 
+  // Attach wheel event with passive: false to allow preventDefault
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const handleWheel = (e) => {
+      e.preventDefault();
+      const delta = e.deltaY > 0 ? -0.1 : 0.1;
+      setScale(prev => Math.max(0.5, Math.min(3, prev + delta)));
+    };
+
+    container.addEventListener('wheel', handleWheel, { passive: false });
+    return () => container.removeEventListener('wheel', handleWheel);
+  }, []);
+
   const toggleVoiceInput = () => {
     if (!recognitionRef.current) {
       alert('Голосовой ввод не поддерживается в этом браузере');
@@ -293,12 +358,6 @@ export default function ActiveSession() {
 
   const handleMouseUp = () => {
     setIsDragging(false);
-  };
-
-  const handleWheel = (e) => {
-    e.preventDefault();
-    const delta = e.deltaY > 0 ? -0.1 : 0.1;
-    setScale(prev => Math.max(0.5, Math.min(3, prev + delta)));
   };
 
   if (isLoading) {
@@ -441,7 +500,6 @@ export default function ActiveSession() {
                   onMouseMove={handleMouseMove}
                   onMouseUp={handleMouseUp}
                   onMouseLeave={handleMouseUp}
-                  onWheel={handleWheel}
                 >
                   {/* Scaled content */}
                   <div
@@ -577,18 +635,38 @@ export default function ActiveSession() {
 
           {/* Voice Input Status */}
           <div className="mb-4 flex items-center gap-4 flex-wrap">
+            {/* AI Enhancement Toggle */}
+            <div className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-50 to-indigo-50 rounded-lg border border-purple-200">
+              <span className="text-sm font-medium text-purple-700">AI:</span>
+              <button
+                onClick={() => setAiEnhancementEnabled(!aiEnhancementEnabled)}
+                className={`relative w-12 h-6 rounded-full transition-colors ${
+                  aiEnhancementEnabled ? 'bg-purple-500' : 'bg-gray-300'
+                }`}
+              >
+                <span
+                  className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
+                    aiEnhancementEnabled ? 'translate-x-6' : ''
+                  }`}
+                />
+              </button>
+              <span className="text-xs text-purple-600">
+                {aiEnhancementEnabled ? 'Вкл' : 'Выкл'}
+              </span>
+            </div>
+
             <button
               onClick={toggleVoiceInput}
-              disabled={isProcessing}
+              disabled={isProcessing || isLLmProcessing}
               className={`flex items-center gap-2 px-6 py-3 rounded-lg font-medium transition-all ${
-                isProcessing
+                isProcessing || isLLmProcessing
                   ? 'bg-gray-400 text-white cursor-not-allowed'
                   : isListening
                   ? 'bg-red-500 text-white animate-pulse'
                   : 'bg-indigo-600 text-white hover:bg-indigo-700'
               }`}
             >
-              <span>{isProcessing ? '⏳ Сохранение...' : isListening ? '⏹ Стоп' : '🎤 Голосовой ввод'}</span>
+              <span>{isProcessing || isLLmProcessing ? '⏳ Обработка...' : isListening ? '⏹ Стоп' : '🎤 Голосовой ввод'}</span>
             </button>
 
             {/* Fix button - appears when there's accumulated transcript */}

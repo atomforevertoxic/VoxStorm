@@ -461,8 +461,39 @@ export default function Recap() {
             style={{ backgroundColor: '#ffffff', borderRadius: '16px', boxShadow: '0 10px 15px rgba(0,0,0,0.1)', padding: '24px' }}
           >
             <div
-              style={{ position: 'relative', borderRadius: '12px', backgroundColor: '#f8fafc', height: '450px' }}
+              style={{ position: 'relative', borderRadius: '12px', backgroundColor: '#f8fafc', height: '600px' }}
             >
+              {/* SVG for connection lines */}
+              <svg className="absolute inset-0 w-full h-full pointer-events-none">
+                <defs>
+                  <linearGradient id="lineGradientRecap" x1="0%" y1="0%" x2="100%" y2="0%">
+                    <stop offset="0%" stopColor="#6366f1" stopOpacity="0.7" />
+                    <stop offset="100%" stopColor="#8b5cf6" stopOpacity="0.35" />
+                  </linearGradient>
+                </defs>
+                {stats.ideas.map((idea, idx) => {
+                  const count = stats.ideas.length || 1;
+                  const angle = (idx * (360 / count)) * (Math.PI / 180);
+                  const radius = 320;
+                  const offsetX = Math.cos(isFinite(angle) ? angle : 0) * radius;
+                  const offsetY = Math.sin(isFinite(angle) ? angle : 0) * radius;
+                  const lineX = `calc(50% + ${offsetX}px)`;
+                  const lineY = `calc(50% + ${offsetY}px)`;
+                  return (
+                    <line
+                      key={`line-${idx}`}
+                      x1="50%"
+                      y1="50%"
+                      x2={lineX}
+                      y2={lineY}
+                      stroke="url(#lineGradientRecap)"
+                      strokeWidth="3"
+                      strokeLinecap="round"
+                    />
+                  );
+                })}
+              </svg>
+
               {/* Central Theme */}
               <div style={{ position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%, -50%)', zIndex: 20 }}>
                 <div style={{ minWidth: '240px', position: 'relative' }}>
@@ -484,7 +515,7 @@ export default function Recap() {
               {stats.ideas.map((idea, idx) => {
                 const count = stats.ideas.length || 1;
                 const angle = (idx * (360 / count)) * (Math.PI / 180);
-                const radius = 160;
+                const radius = 320;
                 const offsetX = Math.cos(isFinite(angle) ? angle : 0) * radius;
                 const offsetY = Math.sin(isFinite(angle) ? angle : 0) * radius;
 

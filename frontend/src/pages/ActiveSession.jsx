@@ -21,6 +21,9 @@ export default function ActiveSession() {
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const [nodePositions, setNodePositions] = useState({});
+  const [draggingNodeId, setDraggingNodeId] = useState(null);
+  const [draggingNodeOffset, setDraggingNodeOffset] = useState({ x: 0, y: 0 });
   const containerRef = useRef(null);
 
   const recognitionRef = useRef(null);
@@ -99,6 +102,7 @@ export default function ActiveSession() {
       if (aiEnhancementEnabled) {
         // Call LLM to process raw transcript into structured ideas
         setIsLLmProcessing(true);
+        console.log(`[AI Request] Sending transcript to LLM (length: ${text.length}), sessionId: ${sessionId}`);
         fetch('http://localhost:5021/api/ideas/process-raw', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -354,10 +358,46 @@ export default function ActiveSession() {
         y: e.clientY - dragStart.y
       });
     }
+    if (draggingNodeId !== null) {
+      handleNodeMouseMove(e);
+    }
   };
 
   const handleMouseUp = () => {
     setIsDragging(false);
+    setDraggingNodeId(null);
+  };
+
+  // Node-specific drag handlers
+  const handleNodeMouseDown = (e, nodeId, currentX, currentY) => {
+    e.stopPropagation();
+    e.preventDefault();
+    const rect = containerRef.current?.getBoundingClientRect();
+    if (rect) {
+      const containerCenterX = rect.width / 2;
+      const containerCenterY = rect.height / 2;
+      setDraggingNodeId(nodeId);
+      setDraggingNodeOffset({
+        x: e.clientX - containerCenterX - currentX,
+        y: e.clientY - containerCenterY - currentY
+      });
+    }
+  };
+
+  const handleNodeMouseMove = (e) => {
+    if (draggingNodeId !== null) {
+      const rect = containerRef.current?.getBoundingClientRect();
+      if (rect) {
+        const containerCenterX = rect.width / 2;
+        const containerCenterY = rect.height / 2;
+        const newX = e.clientX - containerCenterX - draggingNodeOffset.x;
+        const newY = e.clientY - containerCenterY - draggingNodeOffset.y;
+        setNodePositions(prev => ({
+          ...prev,
+          [draggingNodeId]: { x: newX, y: newY }
+        }));
+      }
+    }
   };
 
   if (isLoading) {
@@ -494,7 +534,7 @@ export default function ActiveSession() {
                   ref={containerRef}
                   className="relative flex-1 rounded-xl bg-gradient-to-br from-slate-50 to-indigo-50 overflow-hidden cursor-grab active:cursor-grabbing"
                   style={{
-                    height: '500px'
+                    height: '600px'
                   }}
                   onMouseDown={handleMouseDown}
                   onMouseMove={handleMouseMove}
@@ -521,16 +561,24 @@ export default function ActiveSession() {
                       {ideas.map((idea, idx) => {
                         const count = ideas.length || 1;
                         const angle = (idx * (360 / count)) * (Math.PI / 180);
-                        const radius = 160;
-                        const centerX = '50%';
-                        const centerY = '50%';
-                        const lineX = `calc(50% + ${radius * Math.cos(angle)}px)`;
-                        const lineY = `calc(50% + ${radius * Math.sin(angle)}px)`;
+                        const radius = 280;
+                        const defaultOffsetX = Math.cos(angle) * radius;
+                        const defaultOffsetY = Math.sin(angle) * radius;
+                        const customPos = nodePositions[idea.id];
+                        const offsetX = customPos?.x ?? defaultOffsetX;
+                        const offsetY = customPos?.y ?? defaultOffsetY;
+                        const centerPos = nodePositions['center'];
+                        const centerOffsetX = centerPos?.x ?? 0;
+                        const centerOffsetY = centerPos?.y ?? 0;
+                        const lineX = `calc(50% + ${offsetX}px)`;
+                        const lineY = `calc(50% + ${offsetY}px)`;
+                        const cx = `calc(50% + ${centerOffsetX}px)`;
+                        const cy = `calc(50% + ${centerOffsetY}px)`;
                         return (
                           <line
                             key={`line-${idx}`}
-                            x1={centerX}
-                            y1={centerY}
+                            x1={cx}
+                            y1={cy}
                             x2={lineX}
                             y2={lineY}
                             stroke="url(#lineGradient)"
@@ -542,7 +590,15 @@ export default function ActiveSession() {
                     </svg>
 
                     {/* Central Theme - Root Node (MAIN ELEMENT) */}
-                    <div className="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2 z-20">
+                    <div
+                      className="absolute z-20 cursor-grab active:cursor-grabbing"
+                      style={{
+                        left: `calc(50% + ${nodePositions['center']?.x ?? 0}px)`,
+                        top: `calc(50% + ${nodePositions['center']?.y ?? 0}px)`,
+                        transform: 'translate(-50%, -50%)'
+                      }}
+                      onMouseDown={(e) => handleNodeMouseDown(e, 'center', nodePositions['center']?.x ?? 0, nodePositions['center']?.y ?? 0)}
+                    >
                       <div className="relative min-w-[240px]">
                         {/* Glow effect */}
                         <div className="absolute -inset-3 bg-gradient-to-br from-indigo-500 via-violet-500 to-purple-500 rounded-3xl blur-lg opacity-40 animate-pulse"></div>
@@ -579,18 +635,22 @@ export default function ActiveSession() {
                     {ideas.map((idea, idx) => {
                       const count = ideas.length || 1;
                       const angle = (idx * (360 / count)) * (Math.PI / 180);
-                      const radius = 160;
-                      const offsetX = Math.cos(angle) * radius;
-                      const offsetY = Math.sin(angle) * radius;
+                      const radius = 280;
+                      const defaultOffsetX = Math.cos(angle) * radius;
+                      const defaultOffsetY = Math.sin(angle) * radius;
+                      const customPos = nodePositions[idea.id];
+                      const offsetX = customPos?.x ?? defaultOffsetX;
+                      const offsetY = customPos?.y ?? defaultOffsetY;
 
                       return (
                         <div
                           key={idea.id || idx}
-                          className="absolute transform -translate-x-1/2 -translate-y-1/2 transition-all hover:scale-110 hover:z-30"
+                          className="absolute transform -translate-x-1/2 -translate-y-1/2 transition-all hover:scale-110 hover:z-30 cursor-grab active:cursor-grabbing"
                           style={{
                             left: `calc(50% + ${offsetX}px)`,
                             top: `calc(50% + ${offsetY}px)`
                           }}
+                          onMouseDown={(e) => handleNodeMouseDown(e, idea.id, offsetX, offsetY)}
                         >
                           <div className="bg-gradient-to-br from-emerald-50 to-teal-50 rounded-xl p-4 shadow-lg border-2 border-emerald-200 hover:border-emerald-400 hover:shadow-xl transition-all max-w-[200px]">
                             <p className="text-gray-800 text-sm font-medium" style={{
@@ -636,12 +696,17 @@ export default function ActiveSession() {
           {/* Voice Input Status */}
           <div className="mb-4 flex items-center gap-4 flex-wrap">
             {/* AI Enhancement Toggle */}
-            <div className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-50 to-indigo-50 rounded-lg border border-purple-200">
-              <span className="text-sm font-medium text-purple-700">AI:</span>
+            <div className={`flex items-center gap-2 px-4 py-2 rounded-lg border border-purple-200 ${isListening ? 'bg-gray-100' : 'bg-gradient-to-r from-purple-50 to-indigo-50'}`}>
+              <span className={`text-sm font-medium ${isListening ? 'text-gray-400' : 'text-purple-700'}`}>AI:</span>
               <button
-                onClick={() => setAiEnhancementEnabled(!aiEnhancementEnabled)}
+                onClick={() => {
+                  const newValue = !aiEnhancementEnabled;
+                  console.log(`[AI Toggle] ${newValue ? 'ON' : 'OFF'}`);
+                  setAiEnhancementEnabled(newValue);
+                }}
+                disabled={isListening}
                 className={`relative w-12 h-6 rounded-full transition-colors ${
-                  aiEnhancementEnabled ? 'bg-purple-500' : 'bg-gray-300'
+                  isListening ? 'bg-gray-300 cursor-not-allowed' : aiEnhancementEnabled ? 'bg-purple-500' : 'bg-gray-300'
                 }`}
               >
                 <span
@@ -650,8 +715,8 @@ export default function ActiveSession() {
                   }`}
                 />
               </button>
-              <span className="text-xs text-purple-600">
-                {aiEnhancementEnabled ? 'Вкл' : 'Выкл'}
+              <span className={`text-xs ${isListening ? 'text-gray-400' : 'text-purple-600'}`}>
+                {isListening ? '⚠️ Идет запись' : aiEnhancementEnabled ? 'Вкл' : 'Выкл'}
               </span>
             </div>
 

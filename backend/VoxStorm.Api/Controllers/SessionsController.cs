@@ -26,6 +26,35 @@ namespace VoxStorm.Api.Controllers
                 .ToListAsync();
         }
 
+        // GET: api/Sessions/completed
+        [HttpGet("completed")]
+        public async Task<ActionResult<IEnumerable<Session>>> GetCompletedSessions()
+        {
+            return await _context.Sessions
+                .Include(s => s.Participants)
+                .Include(s => s.Ideas)
+                .Where(s => s.Status == "completed")
+                .OrderByDescending(s => s.EndedAt)
+                .ToListAsync();
+        }
+
+        // PUT: api/Sessions/5/resume
+        [HttpPut("{id}/resume")]
+        public async Task<IActionResult> ResumeSession(int id)
+        {
+            var session = await _context.Sessions.FindAsync(id);
+            if (session == null)
+            {
+                return NotFound();
+            }
+
+            session.Status = "pending";
+            session.EndedAt = null;
+            await _context.SaveChangesAsync();
+
+            return NoContent();
+        }
+
         // GET: api/Sessions/5
         [HttpGet("{id}")]
         public async Task<ActionResult<Session>> GetSession(int id)

@@ -474,7 +474,7 @@ export default function Recap() {
                 {stats.ideas.map((idea, idx) => {
                   const count = stats.ideas.length || 1;
                   const angle = (idx * (360 / count)) * (Math.PI / 180);
-                  const radius = 320;
+                  const radius = 280;
                   const offsetX = Math.cos(isFinite(angle) ? angle : 0) * radius;
                   const offsetY = Math.sin(isFinite(angle) ? angle : 0) * radius;
                   const lineX = `calc(50% + ${offsetX}px)`;
@@ -515,7 +515,7 @@ export default function Recap() {
               {stats.ideas.map((idea, idx) => {
                 const count = stats.ideas.length || 1;
                 const angle = (idx * (360 / count)) * (Math.PI / 180);
-                const radius = 320;
+                const radius = 280;
                 const offsetX = Math.cos(isFinite(angle) ? angle : 0) * radius;
                 const offsetY = Math.sin(isFinite(angle) ? angle : 0) * radius;
 

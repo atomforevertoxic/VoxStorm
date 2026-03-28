@@ -59,22 +59,29 @@ public class OllamaLlmService : ILlmService
 
     private string BuildPrompt(string transcript, string centralTheme)
     {
-        return $@"Ты — ассистент мозгового штурма. Преобразуй следующий голосовой транскрипт в 1-5 четких, лаконичных идей.
+        return $@"Ты — ассистент мозгового штурма. Преобразуй следующий голосовой транскрипт в структурированные идеи.
 Каждая идея должна быть одним конкретным, завершенным высказыванием.
 
 Центральная тема: ""{centralTheme}""
 
 Транскрипт: ""{transcript}""
 
+ВАЖНЫЕ ПРАВИЛА:
+1. Оцени РЕЛЕВАНТНОСТЬ каждой идеи к центральной теме от 0% до 100%
+2. НЕ ПРИДУМЫВАЙ идеи от себя — только то, что есть в транскрипте
+3. Если текст не относится к теме (релевантность < 20%) — НЕ включай его в ответ
+4. Максимум 5 идей, минимум 0 если ничего не подходит
+
 Формат вывода JSON:
 {{
   ""ideas"": [
-    {{""text"": ""идея 1"", ""category"": ""opportunity""}},
-    {{""text"": ""идея 2"", ""category"": ""risk""}}
+    {{""text"": ""идея 1"", ""category"": ""opportunity"", ""relevance"": 85}},
+    {{""text"": ""идея 2"", ""category"": ""risk"", ""relevance"": 60}}
   ]
 }}
 
 Категории на выбор: opportunity (возможность), risk (риск), task (задача), question (вопрос), general (общее)
+relevance: число от 0 до 100 — насколько идея связана с центральной темой
 Возвращай ТОЛЬКО JSON, без разметки, без объяснений.";
     }
 
@@ -96,6 +103,11 @@ public class OllamaLlmService : ILlmService
             {
                 foreach (var item in ideasArray.EnumerateArray())
                 {
+                    var relevance = item.TryGetProperty("relevance", out var rel) ? rel.GetInt32() : 100;
+
+                    // Filter out ideas with relevance < 20%
+                    if (relevance < 20) continue;
+
                     var idea = new ProcessedIdeaDto
                     {
                         Text = item.GetProperty("text").GetString() ?? "",

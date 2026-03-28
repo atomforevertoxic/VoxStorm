@@ -15,10 +15,8 @@ export default function App() {
 
   // Fetch completed sessions
   useEffect(() => {
-    if (showPastSessions) {
-      fetchCompletedSessions();
-    }
-  }, [showPastSessions]);
+    fetchCompletedSessions();
+  }, []);
 
   const fetchCompletedSessions = async () => {
     try {

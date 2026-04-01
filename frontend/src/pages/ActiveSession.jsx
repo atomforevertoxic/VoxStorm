@@ -53,14 +53,15 @@ export default function ActiveSession() {
   }, [sessionId]);
 
   // Submit idea to API
-  const submitIdea = useCallback(async (text, clearManual = false) => {
+  const submitIdea = useCallback(async (text, clearManual = false, extra = {}) => {
     if (!text.trim()) return;
 
     try {
       const payload = {
         text: text.trim(),
         sessionId: parseInt(sessionId),
-        category: ''
+        category: extra.category || '',
+        relevance: extra.relevance || 100
       };
       console.log('Sending payload:', payload);
 
@@ -124,7 +125,8 @@ export default function ActiveSession() {
               id: Date.now() + idx,
               text: idea.text,
               createdAt: new Date().toISOString(),
-              category: idea.category
+              category: idea.category,
+              relevance: idea.relevance
             }));
             setPendingIdeas(prev => [...prev, ...newPendingIdeas]);
           }
@@ -138,7 +140,8 @@ export default function ActiveSession() {
           const newPendingIdea = {
             id: Date.now(),
             text: text,
-            createdAt: new Date().toISOString()
+            createdAt: new Date().toISOString(),
+            relevance: 100
           };
           setPendingIdeas(prev => [...prev, newPendingIdea]);
           accumulatedTranscriptRef.current = '';
@@ -150,7 +153,8 @@ export default function ActiveSession() {
         const newPendingIdea = {
           id: Date.now(),
           text: text,
-          createdAt: new Date().toISOString()
+          createdAt: new Date().toISOString(),
+          relevance: 100
         };
         setPendingIdeas(prev => [...prev, newPendingIdea]);
         accumulatedTranscriptRef.current = '';
@@ -168,7 +172,7 @@ export default function ActiveSession() {
 
     setIsProcessing(true);
     console.log('Calling submitIdea with text:', pending.text);
-    await submitIdea(pending.text);
+    await submitIdea(pending.text, false, { category: pending.category, relevance: pending.relevance });
     console.log('submitIdea completed');
     setPendingIdeas(prev => prev.filter(p => p.id !== pendingId));
     setIsProcessing(false);
@@ -312,7 +316,8 @@ export default function ActiveSession() {
     const newPendingIdea = {
       id: Date.now(),
       text: manualInput.trim(),
-      createdAt: new Date().toISOString()
+      createdAt: new Date().toISOString(),
+      relevance: 100
     };
     setPendingIdeas(prev => [...prev, newPendingIdea]);
     setManualInput('');
@@ -652,22 +657,31 @@ export default function ActiveSession() {
                           }}
                           onMouseDown={(e) => handleNodeMouseDown(e, idea.id, offsetX, offsetY)}
                         >
-                          <div className="bg-gradient-to-br from-emerald-50 to-teal-50 rounded-xl p-4 shadow-lg border-2 border-emerald-200 hover:border-emerald-400 hover:shadow-xl transition-all max-w-[200px]">
+                          <div className="bg-gradient-to-br from-emerald-50 to-teal-50 rounded-xl p-5 shadow-lg border-2 border-emerald-200 hover:border-emerald-400 hover:shadow-xl transition-all max-w-[280px]">
                             <p className="text-gray-800 text-sm font-medium" style={{
                               display: '-webkit-box',
-                              WebkitLineClamp: 3,
+                              WebkitLineClamp: 5,
                               WebkitBoxOrient: 'vertical',
                               overflow: 'hidden'
                             }}>{idea.text}</p>
-                            <div className="mt-2 flex items-center justify-between">
+                            <div className="mt-3 pt-2 border-t border-emerald-200 flex items-center justify-between">
                               <span className="text-xs text-gray-400">
                                 {idea.createdAt ? new Date(idea.createdAt).toLocaleTimeString() : ''}
                               </span>
-                              {idea.category && (
-                                <span className="bg-purple-100 text-purple-700 px-2 py-0.5 rounded text-xs">
-                                  {idea.category}
+                              <div className="flex items-center gap-2">
+                                {idea.category && (
+                                  <span className="bg-purple-100 text-purple-700 px-2 py-0.5 rounded text-xs">
+                                    {idea.category}
+                                  </span>
+                                )}
+                                <span className={`text-xs font-semibold px-2 py-0.5 rounded ${
+                                  idea.relevance >= 70 ? 'bg-green-100 text-green-700' :
+                                  idea.relevance >= 40 ? 'bg-yellow-100 text-yellow-700' :
+                                  'bg-red-100 text-red-700'
+                                }`}>
+                                  {idea.relevance || 100}%
                                 </span>
-                              )}
+                              </div>
                             </div>
                           </div>
                         </div>
@@ -783,9 +797,20 @@ export default function ActiveSession() {
                 >
                   <div className="flex-1">
                     <p className="text-gray-800">{pending.text}</p>
-                    <p className="text-xs text-gray-400 mt-1">
-                      {new Date(pending.createdAt).toLocaleTimeString()}
-                    </p>
+                    <div className="flex items-center gap-2 mt-1">
+                      <p className="text-xs text-gray-400">
+                        {new Date(pending.createdAt).toLocaleTimeString()}
+                      </p>
+                      {pending.relevance && (
+                        <span className={`text-xs font-semibold px-2 py-0.5 rounded ${
+                          pending.relevance >= 70 ? 'bg-green-100 text-green-700' :
+                          pending.relevance >= 40 ? 'bg-yellow-100 text-yellow-700' :
+                          'bg-red-100 text-red-700'
+                        }`}>
+                          {pending.relevance}%
+                        </span>
+                      )}
+                    </div>
                   </div>
                   <div className="flex gap-2">
                     <button

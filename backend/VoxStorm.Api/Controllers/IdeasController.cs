@@ -43,7 +43,8 @@ namespace VoxStorm.Api.Controllers
                     {
                         Text = i.Text,
                         Category = i.Category,
-                        ParentIdeaId = i.ParentIdeaId
+                        ParentIdeaId = i.ParentIdeaId,
+                        Relevance = i.Relevance
                     }).ToList()
                 };
 
@@ -101,7 +102,8 @@ namespace VoxStorm.Api.Controllers
                     ParticipantId = dto.ParticipantId,
                     Category = dto.Category,
                     ParentIdeaId = dto.ParentIdeaId,
-                    CreatedAt = DateTime.Now
+                    CreatedAt = DateTime.Now,
+                    Relevance = dto.Relevance
                 };
 
                 _context.Ideas.Add(idea);

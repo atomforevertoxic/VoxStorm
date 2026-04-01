@@ -115,7 +115,8 @@ relevance: число от 0 до 100 — насколько идея связа
                     {
                         Text = item.GetProperty("text").GetString() ?? "",
                         Category = item.TryGetProperty("category", out var cat) ? cat.GetString() ?? "general" : "general",
-                        ParentIdeaId = null
+                        ParentIdeaId = null,
+                        Relevance = relevance
                     };
                     if (!string.IsNullOrWhiteSpace(idea.Text))
                         ideas.Add(idea);

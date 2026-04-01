@@ -29,6 +29,8 @@ namespace VoxStorm.Api.Models
 
         public Idea? ParentIdea { get; set; }
 
+        public int Relevance { get; set; } = 100;
+
         public ICollection<Idea> ChildIdeas { get; set; } = new List<Idea>();
     }
 }

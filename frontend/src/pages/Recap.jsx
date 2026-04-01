@@ -292,10 +292,10 @@ export default function Recap() {
   const mindMapNodeStyle = {
     backgroundColor: '#ecfdf5',
     borderRadius: '12px',
-    padding: '16px',
+    padding: '20px',
     boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
     border: '2px solid #a7f3d0',
-    maxWidth: '200px'
+    maxWidth: '280px'
   };
 
   return (
@@ -437,6 +437,9 @@ export default function Recap() {
                           {idea.category}
                         </span>
                       )}
+                      <span style={{ color: idea.relevance >= 70 ? '#059669' : idea.relevance >= 40 ? '#d97706' : '#dc2626', fontWeight: '600' }}>
+                        {idea.relevance}% релевантность
+                      </span>
                       {idea.isApproved && (
                         <span style={{ color: '#059669' }}>Подтверждена</span>
                       )}
@@ -530,9 +533,19 @@ export default function Recap() {
                     }}
                   >
                     <div style={mindMapNodeStyle}>
-                      <p style={{ color: '#1f2937', fontSize: '14px', fontWeight: '500', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical' }}>
+                      <p style={{ color: '#1f2937', fontSize: '14px', fontWeight: '500', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 5, WebkitBoxOrient: 'vertical' }}>
                         {idea.text}
                       </p>
+                      <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontSize: '12px', color: idea.relevance >= 70 ? '#059669' : idea.relevance >= 40 ? '#d97706' : '#dc2626', fontWeight: '600' }}>
+                          {idea.relevance}%
+                        </span>
+                        {idea.category && (
+                          <span style={{ fontSize: '11px', backgroundColor: '#f3e8ff', color: '#7c3aed', padding: '2px 6px', borderRadius: '4px' }}>
+                            {idea.category}
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
                 );

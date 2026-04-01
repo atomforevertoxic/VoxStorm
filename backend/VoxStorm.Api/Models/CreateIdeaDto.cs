@@ -7,5 +7,6 @@ namespace VoxStorm.Api.Models
         public int? ParticipantId { get; set; }
         public string? Category { get; set; }
         public int? ParentIdeaId { get; set; }
+        public int Relevance { get; set; } = 100;
     }
 }

@@ -309,15 +309,43 @@ export default function ActiveSession() {
     }
   };
 
-  const handleManualSubmit = (e) => {
+  // Categorize single text via LLM
+  const categorizeText = async (text) => {
+    try {
+      const response = await fetch('http://localhost:5021/api/ideas/categorize', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text, centralTheme: session?.centralTheme || '' })
+      });
+      if (response.ok) {
+        return await response.json();
+      }
+    } catch (err) {
+      console.error('Categorization error:', err);
+    }
+    return { category: 'general', relevance: 100 };
+  };
+
+  const handleManualSubmit = async (e) => {
     e.preventDefault();
     if (!manualInput.trim()) return;
 
+    const text = manualInput.trim();
+    let category = 'general';
+    let relevance = 100;
+
+    if (aiEnhancementEnabled) {
+      const result = await categorizeText(text);
+      category = result.category || 'general';
+      relevance = result.relevance || 100;
+    }
+
     const newPendingIdea = {
       id: Date.now(),
-      text: manualInput.trim(),
+      text,
       createdAt: new Date().toISOString(),
-      relevance: 100
+      category,
+      relevance
     };
     setPendingIdeas(prev => [...prev, newPendingIdea]);
     setManualInput('');
@@ -797,10 +825,15 @@ export default function ActiveSession() {
                 >
                   <div className="flex-1">
                     <p className="text-gray-800">{pending.text}</p>
-                    <div className="flex items-center gap-2 mt-1">
+                    <div className="flex items-center gap-3 mt-1">
                       <p className="text-xs text-gray-400">
                         {new Date(pending.createdAt).toLocaleTimeString()}
                       </p>
+                      {pending.category && (
+                        <span className="bg-purple-100 text-purple-700 px-2 py-0.5 rounded text-xs">
+                          {pending.category}
+                        </span>
+                      )}
                       {pending.relevance && (
                         <span className={`text-xs font-semibold px-2 py-0.5 rounded ${
                           pending.relevance >= 70 ? 'bg-green-100 text-green-700' :

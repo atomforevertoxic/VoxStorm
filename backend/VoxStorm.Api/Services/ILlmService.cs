@@ -3,6 +3,7 @@ namespace VoxStorm.Api.Services;
 public interface ILlmService
 {
     Task<List<ProcessedIdeaDto>> ProcessTranscriptAsync(string transcript, string centralTheme, int sessionId);
+    Task<ProcessedIdeaDto> CategorizeTextAsync(string text, string centralTheme);
 }
 
 public class ProcessedIdeaDto

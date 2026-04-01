@@ -57,6 +57,94 @@ public class OllamaLlmService : ILlmService
         }
     }
 
+    public async Task<ProcessedIdeaDto> CategorizeTextAsync(string text, string centralTheme)
+    {
+        var prompt = BuildCategorizePrompt(text, centralTheme);
+
+        var requestBody = new
+        {
+            model = _model,
+            prompt = prompt,
+            stream = false,
+            options = new { temperature = 0.3 }
+        };
+
+        try
+        {
+            var response = await _httpClient.PostAsJsonAsync(
+                $"{_baseUrl}/api/generate",
+                requestBody
+            );
+
+            if (!response.IsSuccessStatusCode)
+            {
+                return new ProcessedIdeaDto { Text = text, Category = "general", Relevance = 100 };
+            }
+
+            var result = await response.Content.ReadFromJsonAsync<OllamaResponse>();
+            var content = result?.response ?? "";
+
+            return ParseSingleCategorization(content, text);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Ollama categorize error: {ex.Message}");
+            return new ProcessedIdeaDto { Text = text, Category = "general", Relevance = 100 };
+        }
+    }
+
+    private string BuildCategorizePrompt(string text, string centralTheme)
+    {
+        return $@"Определи категорию и релевантность для следующей идеи.
+
+Центральная тема: ""{centralTheme}""
+
+Идея: ""{text}""
+
+Формат вывода JSON (только JSON, ничего больше):
+{{""category"": ""возможность"", ""relevance"": 85}}
+
+НЕ ставь ""general"" если идея подходит под другие категории!
+Категории:
+- возможность (новые идеи, улучшения)
+- риск (потенциальные проблемы)
+- задача (конкретные действия)
+- вопрос (неопределенности для обсуждения)
+- общее (если не подходит под другие)
+
+relevance: от 0 до 100 — насколько идея связана с центральной темой
+Возвращай ТОЛЬКО JSON, без разметки.";
+    }
+
+    private ProcessedIdeaDto ParseSingleCategorization(string content, string originalText)
+    {
+        try
+        {
+            content = content.Trim();
+            if (content.StartsWith("```json")) content = content[7..];
+            if (content.StartsWith("```")) content = content[3..];
+            if (content.EndsWith("```")) content = content[..^3];
+            content = content.Trim();
+
+            using var doc = JsonDocument.Parse(content);
+
+            var category = doc.RootElement.TryGetProperty("category", out var cat) ? cat.GetString() ?? "general" : "general";
+            var relevance = doc.RootElement.TryGetProperty("relevance", out var rel) ? rel.GetInt32() : 100;
+
+            return new ProcessedIdeaDto
+            {
+                Text = originalText,
+                Category = category,
+                Relevance = relevance
+            };
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Failed to parse categorization: {ex.Message}");
+            return new ProcessedIdeaDto { Text = originalText, Category = "general", Relevance = 100 };
+        }
+    }
+
     private string BuildPrompt(string transcript, string centralTheme)
     {
         return $@"Ты — ассистент мозгового штурма. Преобразуй следующий голосовой транскрипт в структурированные идеи.
@@ -75,12 +163,13 @@ public class OllamaLlmService : ILlmService
 Формат вывода JSON:
 {{
   ""ideas"": [
-    {{""text"": ""идея 1"", ""category"": ""opportunity"", ""relevance"": 85}},
-    {{""text"": ""идея 2"", ""category"": ""risk"", ""relevance"": 60}}
+    {{""text"": ""идея 1"", ""category"": ""возможность"", ""relevance"": 85}},
+    {{""text"": ""идея 2"", ""category"": ""риск"", ""relevance"": 60}}
   ]
 }}
 
-Категории на выбор: opportunity (возможность), risk (риск), task (задача), question (вопрос), general (общее)
+ОБЯЗАТЕЛЬНО используй разные категории! Не ставь ""general"" если идея подходит под другие категории.
+Категории: возможность (новые идеи, улучшения), риск (потенциальные проблемы), задача (конкретные действия), вопрос (неопределенности для обсуждения), общее (остальное)
 relevance: число от 0 до 100 — насколько идея связана с центральной темой
 Возвращай ТОЛЬКО JSON, без разметки, без объяснений.";
     }

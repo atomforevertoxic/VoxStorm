@@ -58,6 +58,22 @@ namespace VoxStorm.Api.Controllers
             }
         }
 
+        // POST: api/Ideas/categorize
+        [HttpPost("categorize")]
+        public async Task<ActionResult<CategorizeResponseDto>> CategorizeText([FromBody] CategorizeRequestDto dto)
+        {
+            try
+            {
+                var result = await _llmService.CategorizeTextAsync(dto.Text, dto.CentralTheme);
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error categorizing text: {ex.Message}");
+                return Ok(new CategorizeResponseDto { Category = "general", Relevance = 100 });
+            }
+        }
+
         // GET: api/Ideas
         [HttpGet]
         public async Task<ActionResult<IEnumerable<Idea>>> GetIdeas()

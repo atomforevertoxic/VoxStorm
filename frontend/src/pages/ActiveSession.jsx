@@ -323,7 +323,7 @@ export default function ActiveSession() {
     } catch (err) {
       console.error('Categorization error:', err);
     }
-    return { category: 'general', relevance: 100 };
+    return { category: 'Общее', relevance: 100 };
   };
 
   const handleManualSubmit = async (e) => {
@@ -331,12 +331,12 @@ export default function ActiveSession() {
     if (!manualInput.trim()) return;
 
     const text = manualInput.trim();
-    let category = 'general';
+    let category = 'Общее';
     let relevance = 100;
 
     if (aiEnhancementEnabled) {
       const result = await categorizeText(text);
-      category = result.category || 'general';
+      category = result.category || 'Общее';
       relevance = result.relevance || 100;
     }
 

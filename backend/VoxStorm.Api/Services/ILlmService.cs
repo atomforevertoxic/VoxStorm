@@ -9,7 +9,7 @@ public interface ILlmService
 public class ProcessedIdeaDto
 {
     public string Text { get; set; } = string.Empty;
-    public string Category { get; set; } = "general";
+    public string Category { get; set; } = "Общее";
     public int? ParentIdeaId { get; set; }
     public int Relevance { get; set; } = 100;
 }

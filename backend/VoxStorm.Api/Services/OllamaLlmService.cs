@@ -78,7 +78,7 @@ public class OllamaLlmService : ILlmService
 
             if (!response.IsSuccessStatusCode)
             {
-                return new ProcessedIdeaDto { Text = text, Category = "general", Relevance = 100 };
+                return new ProcessedIdeaDto { Text = text, Category = "Общее", Relevance = 100 };
             }
 
             var result = await response.Content.ReadFromJsonAsync<OllamaResponse>();
@@ -89,7 +89,7 @@ public class OllamaLlmService : ILlmService
         catch (Exception ex)
         {
             Console.WriteLine($"Ollama categorize error: {ex.Message}");
-            return new ProcessedIdeaDto { Text = text, Category = "general", Relevance = 100 };
+            return new ProcessedIdeaDto { Text = text, Category = "Общее", Relevance = 100 };
         }
     }
 
@@ -102,16 +102,16 @@ public class OllamaLlmService : ILlmService
 Идея: ""{text}""
 
 Формат вывода JSON (только JSON, ничего больше):
-{{""category"": ""возможность"", ""relevance"": 85}}
+{{""category"": ""Возможность"", ""relevance"": 85}}
 
-НЕ ставь ""general"" если идея подходит под другие категории!
-Категории:
-- возможность (новые идеи, улучшения)
-- риск (потенциальные проблемы)
-- задача (конкретные действия)
-- вопрос (неопределенности для обсуждения)
-- общее (если не подходит под другие)
+Категории (ПИШИ С ЗАГЛАВНОЙ БУКВЫ):
+- Возможность (новые идеи, улучшения)
+- Риск (потенциальные проблемы)
+- Задача (конкретные действия)
+- Вопрос (неопределенности для обсуждения)
+- Общее (если не подходит под другие)
 
+НЕ ставь ""Общее"" если идея подходит под другие категории!
 relevance: от 0 до 100 — насколько идея связана с центральной темой
 Возвращай ТОЛЬКО JSON, без разметки.";
     }
@@ -128,7 +128,9 @@ relevance: от 0 до 100 — насколько идея связана с ц�
 
             using var doc = JsonDocument.Parse(content);
 
-            var category = doc.RootElement.TryGetProperty("category", out var cat) ? cat.GetString() ?? "general" : "general";
+            var category = doc.RootElement.TryGetProperty("category", out var cat)
+                ? NormalizeCategory(cat.GetString())
+                : "Общее";
             var relevance = doc.RootElement.TryGetProperty("relevance", out var rel) ? rel.GetInt32() : 100;
 
             return new ProcessedIdeaDto
@@ -141,7 +143,7 @@ relevance: от 0 до 100 — насколько идея связана с ц�
         catch (Exception ex)
         {
             Console.WriteLine($"Failed to parse categorization: {ex.Message}");
-            return new ProcessedIdeaDto { Text = originalText, Category = "general", Relevance = 100 };
+            return new ProcessedIdeaDto { Text = originalText, Category = "Общее", Relevance = 100 };
         }
     }
 
@@ -163,13 +165,13 @@ relevance: от 0 до 100 — насколько идея связана с ц�
 Формат вывода JSON:
 {{
   ""ideas"": [
-    {{""text"": ""идея 1"", ""category"": ""возможность"", ""relevance"": 85}},
-    {{""text"": ""идея 2"", ""category"": ""риск"", ""relevance"": 60}}
+    {{""text"": ""идея 1"", ""category"": ""Возможность"", ""relevance"": 85}},
+    {{""text"": ""идея 2"", ""category"": ""Риск"", ""relevance"": 60}}
   ]
 }}
 
-ОБЯЗАТЕЛЬНО используй разные категории! Не ставь ""general"" если идея подходит под другие категории.
-Категории: возможность (новые идеи, улучшения), риск (потенциальные проблемы), задача (конкретные действия), вопрос (неопределенности для обсуждения), общее (остальное)
+Категории (ПИШИ С ЗАГЛАВНОЙ БУКВЫ): Возможность (новые идеи, улучшения), Риск (потенциальные проблемы), Задача (конкретные действия), Вопрос (неопределенности для обсуждения), Общее (остальное)
+ОБЯЗАТЕЛЬНО используй разные категории! Не ставь ""Общее"" если идея подходит под другие категории.
 relevance: число от 0 до 100 — насколько идея связана с центральной темой
 Возвращай ТОЛЬКО JSON, без разметки, без объяснений.";
     }
@@ -200,7 +202,9 @@ relevance: число от 0 до 100 — насколько идея связа
                     var idea = new ProcessedIdeaDto
                     {
                         Text = item.GetProperty("text").GetString() ?? "",
-                        Category = item.TryGetProperty("category", out var cat) ? cat.GetString() ?? "general" : "general",
+                        Category = item.TryGetProperty("category", out var cat)
+                            ? NormalizeCategory(cat.GetString())
+                            : "Общее",
                         ParentIdeaId = null,
                         Relevance = relevance
                     };
@@ -211,7 +215,7 @@ relevance: число от 0 до 100 — насколько идея связа
 
             return ideas.Count > 0 ? ideas : new List<ProcessedIdeaDto>
             {
-                new() { Text = content.Length > 200 ? content[..200] + "..." : content, Category = "general" }
+                new() { Text = content.Length > 200 ? content[..200] + "..." : content, Category = "Общее" }
             };
         }
         catch (Exception ex)
@@ -233,9 +237,25 @@ relevance: число от 0 до 100 — насколько идея связа
         return sentences.Select(s => new ProcessedIdeaDto
         {
             Text = s,
-            Category = "general",
+            Category = "Общее",
             ParentIdeaId = null
         }).ToList();
+    }
+
+    private static string NormalizeCategory(string? category)
+    {
+        if (string.IsNullOrWhiteSpace(category))
+            return "Общее";
+
+        return category.Trim().ToLower() switch
+        {
+            "general" or "общее" => "Общее",
+            "возможность" => "Возможность",
+            "риск" => "Риск",
+            "задача" => "Задача",
+            "вопрос" => "Вопрос",
+            _ => char.ToUpper(category.Trim()[0]) + category.Trim()[1..].ToLower()
+        };
     }
 
     private class OllamaResponse

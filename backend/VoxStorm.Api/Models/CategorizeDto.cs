@@ -8,6 +8,6 @@ public class CategorizeRequestDto
 
 public class CategorizeResponseDto
 {
-    public string Category { get; set; } = "general";
+    public string Category { get; set; } = "Общее";
     public int Relevance { get; set; } = 100;
 }

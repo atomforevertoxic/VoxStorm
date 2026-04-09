@@ -9,14 +9,10 @@ yarn-error.log*
 .yarn-integrity
 
 # lockfile
-package-lock.json
 pnpm-lock.yaml
 
-# Next.js build
-.next/
-
 # React build
-/build/
+frontend/build/
 
 # Coverage
 coverage/
@@ -66,7 +62,6 @@ jspm_packages/
 
 # NuGet
 *.nupkg
-# The packages folder can be ignored because of Package Restore
 **/packages/*
 !**/packages/build/
 !**/packages/repositories.config
@@ -92,7 +87,6 @@ StyleCopReport.xml
 # Temporary files
 *.tmp
 *.temp
-*.log
 
 # VisualStudio Code workspace file
 *.code-workspace
@@ -106,13 +100,13 @@ StyleCopReport.xml
 *_p.c
 *_h.h
 
-# === Python (if used)
+# === Python (if used) ===
 __pycache__/
 *.py[cod]
 
 # === OS files ===
 Thumbs.db
- ehthumbs.db
+ehthumbs.db
 Desktop.ini
 
 # Editor backups
@@ -121,14 +115,18 @@ Desktop.ini
 
 # Environment variables
 .env
+.env.local
+.env.development
+.env.production
 
-# Additional project-specific
-# Add any further ignores below as needed
+# === Project-specific ===
+temp_pdf.txt
+*.http
+
+# Claude Code
+.claude/
 
 # SQLite
 *.db
 *.db-shm
 *.db-wal
-
-# Frontend build (already generated, not source)
-frontend/build/

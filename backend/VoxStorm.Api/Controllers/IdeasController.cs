@@ -70,7 +70,7 @@ namespace VoxStorm.Api.Controllers
             catch (Exception ex)
             {
                 Console.WriteLine($"Error categorizing text: {ex.Message}");
-                return Ok(new CategorizeResponseDto { Category = "general", Relevance = 100 });
+                return Ok(new CategorizeResponseDto { Category = "Общее", Relevance = 100 });
             }
         }
 

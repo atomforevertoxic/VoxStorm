@@ -42,7 +42,17 @@ export default function ActiveSession() {
         const normalizedData = { ...data, participants };
         setSession(normalizedData);
         // Ensure ideas is always an array
-        setIdeas(Array.isArray(data.ideas?.$values) ? data.ideas.$values : Array.isArray(data.ideas) ? data.ideas : []);
+        const loadedIdeas = Array.isArray(data.ideas?.$values) ? data.ideas.$values : Array.isArray(data.ideas) ? data.ideas : [];
+        setIdeas(loadedIdeas);
+        // Initialize default positions for all loaded ideas
+        const initialPositions = {};
+        loadedIdeas.forEach((idea, idx) => {
+          const count = loadedIdeas.length || 1;
+          const angle = (idx * (360 / count)) * (Math.PI / 180);
+          const radius = 280;
+          initialPositions[idea.id] = { x: Math.cos(angle) * radius, y: Math.sin(angle) * radius };
+        });
+        setNodePositions(prev => ({ ...prev, ...initialPositions }));
         setIsLoading(false);
       } catch (err) {
         setError(err.message);
@@ -84,6 +94,14 @@ export default function ActiveSession() {
         console.log('Previous ideas:', prevIdeas);
         const updated = [...(prevIdeas || []), newIdea];
         console.log('Updated ideas:', updated);
+        // Set initial position for the new idea node
+        const count = updated.length || 1;
+        const angle = ((updated.length - 1) * (360 / count)) * (Math.PI / 180);
+        const radius = 280;
+        setNodePositions(prev => ({
+          ...prev,
+          [newIdea.id]: { x: Math.cos(angle) * radius, y: Math.sin(angle) * radius }
+        }));
         return updated;
       });
 
@@ -583,44 +601,38 @@ export default function ActiveSession() {
                       transition: isDragging ? 'none' : 'transform 0.1s ease-out'
                     }}
                   >
-                    {/* SVG for connection lines */}
-                    <svg className="absolute inset-0 w-full h-full pointer-events-none">
-                      <defs>
-                        <linearGradient id="lineGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                          <stop offset="0%" stopColor="#6366f1" stopOpacity="0.7" />
-                          <stop offset="100%" stopColor="#8b5cf6" stopOpacity="0.35" />
-                        </linearGradient>
-                      </defs>
-                      {ideas.map((idea, idx) => {
-                        const count = ideas.length || 1;
-                        const angle = (idx * (360 / count)) * (Math.PI / 180);
-                        const radius = 280;
-                        const defaultOffsetX = Math.cos(angle) * radius;
-                        const defaultOffsetY = Math.sin(angle) * radius;
-                        const customPos = nodePositions[idea.id];
-                        const offsetX = customPos?.x ?? defaultOffsetX;
-                        const offsetY = customPos?.y ?? defaultOffsetY;
-                        const centerPos = nodePositions['center'];
-                        const centerOffsetX = centerPos?.x ?? 0;
-                        const centerOffsetY = centerPos?.y ?? 0;
-                        const lineX = `calc(50% + ${offsetX}px)`;
-                        const lineY = `calc(50% + ${offsetY}px)`;
-                        const cx = `calc(50% + ${centerOffsetX}px)`;
-                        const cy = `calc(50% + ${centerOffsetY}px)`;
-                        return (
-                          <line
-                            key={`line-${idx}`}
-                            x1={cx}
-                            y1={cy}
-                            x2={lineX}
-                            y2={lineY}
-                            stroke="url(#lineGradient)"
-                            strokeWidth="3"
-                            strokeLinecap="round"
-                          />
-                        );
-                      })}
-                    </svg>
+                    {/* Connection lines */}
+                    {ideas.map((idea, idx) => {
+                      const count = ideas.length || 1;
+                      const angle = (idx * (360 / count)) * (Math.PI / 180);
+                      const radius = 280;
+                      const customPos = nodePositions[idea.id];
+                      const offsetX = customPos?.x ?? Math.cos(angle) * radius;
+                      const offsetY = customPos?.y ?? Math.sin(angle) * radius;
+                      const centerPos = nodePositions['center'];
+                      const centerOffsetX = centerPos?.x ?? 0;
+                      const centerOffsetY = centerPos?.y ?? 0;
+                      const dx = offsetX - centerOffsetX;
+                      const dy = offsetY - centerOffsetY;
+                      const distance = Math.sqrt(dx * dx + dy * dy);
+                      const lineAngle = Math.atan2(dy, dx);
+                      return (
+                        <div
+                          key={`line-${idx}`}
+                          className="absolute pointer-events-none"
+                          style={{
+                            left: `calc(50% + ${centerOffsetX}px)`,
+                            top: `calc(50% + ${centerOffsetY}px)`,
+                            width: `${distance}px`,
+                            height: '3px',
+                            background: 'linear-gradient(to right, rgba(99, 102, 241, 0.7), rgba(139, 92, 246, 0.35))',
+                            borderRadius: '2px',
+                            transform: `rotate(${lineAngle}rad)`,
+                            transformOrigin: '0 50%',
+                          }}
+                        />
+                      );
+                    })}
 
                     {/* Central Theme - Root Node (MAIN ELEMENT) */}
                     <div

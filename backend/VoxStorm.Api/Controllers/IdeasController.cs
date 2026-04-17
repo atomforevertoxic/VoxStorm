@@ -118,7 +118,7 @@ namespace VoxStorm.Api.Controllers
                     ParticipantId = dto.ParticipantId,
                     Category = dto.Category,
                     ParentIdeaId = dto.ParentIdeaId,
-                    CreatedAt = DateTime.Now,
+                    CreatedAt = DateTime.UtcNow,
                     Relevance = dto.Relevance
                 };
 
@@ -163,6 +163,29 @@ namespace VoxStorm.Api.Controllers
             }
 
             return NoContent();
+        }
+
+        // PUT: api/Ideas/5/position
+        [HttpPut("{id}/position")]
+        public async Task<IActionResult> UpdatePosition(int id, [FromBody] IdeaPositionDto dto)
+        {
+            var idea = await _context.Ideas.FindAsync(id);
+            if (idea == null)
+            {
+                return NotFound();
+            }
+
+            idea.PositionX = dto.PositionX;
+            idea.PositionY = dto.PositionY;
+            await _context.SaveChangesAsync();
+
+            return NoContent();
+        }
+
+        public class IdeaPositionDto
+        {
+            public double PositionX { get; set; }
+            public double PositionY { get; set; }
         }
 
         // DELETE: api/Ideas/5

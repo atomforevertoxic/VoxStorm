@@ -18,10 +18,20 @@ export default function Recap() {
         const response = await fetch(`http://localhost:5021/api/sessions/${sessionId}/stats`);
         if (!response.ok) throw new Error('Session not found');
         const data = await response.json();
+        // Normalize: handle both clean JSON and legacy $values/$ref wrappers
+        const normalize = (val) => {
+          if (!val) return [];
+          if (Array.isArray(val)) return val;
+          if (val.$values) return val.$values;
+          return [];
+        };
         const normalizedData = {
           ...data,
-          participants: data.participants?.$values || data.participants || [],
-          ideas: data.ideas?.$values || data.ideas || []
+          participants: normalize(data.participants),
+          ideas: normalize(data.ideas),
+          categories: data.categories && !Array.isArray(data.categories) && data.categories.$id
+            ? data.categories  // legacy format - keep as-is
+            : data.categories || {}
         };
         setStats(normalizedData);
         setIsLoading(false);
@@ -32,6 +42,15 @@ export default function Recap() {
     };
     fetchStats();
   }, [sessionId]);
+
+  const getIdeaOffset = (idea, idx, total) => {
+    if (idea.positionX != null && idea.positionY != null) {
+      return { x: idea.positionX, y: idea.positionY };
+    }
+    const angle = (idx * (360 / (total || 1))) * (Math.PI / 180);
+    const radius = 280;
+    return { x: Math.cos(angle) * radius, y: Math.sin(angle) * radius };
+  };
 
   const formatDuration = (seconds) => {
     if (!seconds || seconds <= 0) return '0с';
@@ -403,17 +422,11 @@ export default function Recap() {
           <div style={{ marginBottom: '32px' }}>
             <h3 style={{ fontSize: '20px', fontWeight: '600', color: '#4338ca', marginBottom: '16px' }}>Участники</h3>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
-              {stats.participants.map((participant, idx) => {
-                const ideaCount = stats.ideasPerParticipant?.[participant.id] || 0;
-                return (
+              {stats.participants.map((participant, idx) => (
                   <div key={idx} style={participantStyle}>
                     <span style={{ fontWeight: '500' }}>{participant.name}</span>
-                    <span style={{ backgroundColor: '#c7d2fe', color: '#4338ca', padding: '2px 8px', borderRadius: '9999px', fontSize: '12px' }}>
-                      {ideaCount} идей
-                    </span>
                   </div>
-                );
-              })}
+              ))}
             </div>
           </div>
 
@@ -475,20 +488,14 @@ export default function Recap() {
                   </linearGradient>
                 </defs>
                 {stats.ideas.map((idea, idx) => {
-                  const count = stats.ideas.length || 1;
-                  const angle = (idx * (360 / count)) * (Math.PI / 180);
-                  const radius = 280;
-                  const offsetX = Math.cos(isFinite(angle) ? angle : 0) * radius;
-                  const offsetY = Math.sin(isFinite(angle) ? angle : 0) * radius;
-                  const lineX = `calc(50% + ${offsetX}px)`;
-                  const lineY = `calc(50% + ${offsetY}px)`;
+                  const { x, y } = getIdeaOffset(idea, idx, stats.ideas.length);
                   return (
                     <line
                       key={`line-${idx}`}
                       x1="50%"
                       y1="50%"
-                      x2={lineX}
-                      y2={lineY}
+                      x2={`calc(50% + ${x}px)`}
+                      y2={`calc(50% + ${y}px)`}
                       stroke="url(#lineGradientRecap)"
                       strokeWidth="3"
                       strokeLinecap="round"
@@ -516,19 +523,15 @@ export default function Recap() {
 
               {/* Idea Nodes */}
               {stats.ideas.map((idea, idx) => {
-                const count = stats.ideas.length || 1;
-                const angle = (idx * (360 / count)) * (Math.PI / 180);
-                const radius = 280;
-                const offsetX = Math.cos(isFinite(angle) ? angle : 0) * radius;
-                const offsetY = Math.sin(isFinite(angle) ? angle : 0) * radius;
+                const { x, y } = getIdeaOffset(idea, idx, stats.ideas.length);
 
                 return (
                   <div
                     key={`node-${idx}`}
                     style={{
                       position: 'absolute',
-                      left: `calc(50% + ${offsetX}px)`,
-                      top: `calc(50% + ${offsetY}px)`,
+                      left: `calc(50% + ${x}px)`,
+                      top: `calc(50% + ${y}px)`,
                       transform: 'translate(-50%, -50%)'
                     }}
                   >

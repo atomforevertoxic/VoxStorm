@@ -87,9 +87,16 @@ namespace VoxStorm.Api.Controllers
             }
 
             var ideas = session.Ideas.ToList();
-            var duration = session.EndedAt.HasValue && session.StartedAt.HasValue
-                ? session.EndedAt.Value - session.StartedAt.Value
-                : (session.EndedAt.HasValue ? session.EndedAt.Value - session.CreatedAt : TimeSpan.Zero);
+            TimeSpan duration = TimeSpan.Zero;
+            if (session.StartedAt.HasValue && session.EndedAt.HasValue)
+            {
+                duration = session.EndedAt.Value.ToUniversalTime() - session.StartedAt.Value.ToUniversalTime();
+            }
+            else if (session.EndedAt.HasValue)
+            {
+                duration = session.EndedAt.Value.ToUniversalTime() - session.CreatedAt.ToUniversalTime();
+            }
+            if (duration < TimeSpan.Zero) duration = TimeSpan.Zero;
 
             var categories = ideas
                 .Where(i => !string.IsNullOrEmpty(i.Category))
@@ -153,7 +160,7 @@ namespace VoxStorm.Api.Controllers
                 Name = sessionDto.Name,
                 CentralTheme = sessionDto.CentralTheme,
                 Method = sessionDto.Method,
-                CreatedAt = DateTime.Now,
+                CreatedAt = DateTime.UtcNow,
                 Status = "pending",
                 Participants = sessionDto.Participants?.Select(p => new Participant { Name = p.Name }).ToList() ?? new List<Participant>()
             };
@@ -180,32 +187,34 @@ namespace VoxStorm.Api.Controllers
 
         // PUT: api/Sessions/5
         [HttpPut("{id}")]
-        public async Task<IActionResult> PutSession(int id, Session session)
+        public async Task<IActionResult> PutSession(int id, [FromBody] SessionUpdateDto dto)
         {
-            if (id != session.Id)
+            var session = await _context.Sessions.FindAsync(id);
+            if (session == null)
             {
-                return BadRequest();
+                return NotFound();
             }
 
-            _context.Entry(session).State = EntityState.Modified;
+            if (dto.Name != null) session.Name = dto.Name;
+            if (dto.CentralTheme != null) session.CentralTheme = dto.CentralTheme;
+            if (dto.Method != null) session.Method = dto.Method;
+            if (dto.Status != null) session.Status = dto.Status;
+            if (dto.StartedAt.HasValue) session.StartedAt = dto.StartedAt;
+            if (dto.EndedAt.HasValue) session.EndedAt = dto.EndedAt;
 
-            try
-            {
-                await _context.SaveChangesAsync();
-            }
-            catch (DbUpdateConcurrencyException)
-            {
-                if (!SessionExists(id))
-                {
-                    return NotFound();
-                }
-                else
-                {
-                    throw;
-                }
-            }
+            await _context.SaveChangesAsync();
 
             return NoContent();
+        }
+
+        public class SessionUpdateDto
+        {
+            public string? Name { get; set; }
+            public string? CentralTheme { get; set; }
+            public string? Method { get; set; }
+            public string? Status { get; set; }
+            public DateTime? StartedAt { get; set; }
+            public DateTime? EndedAt { get; set; }
         }
 
         // DELETE: api/Sessions/5

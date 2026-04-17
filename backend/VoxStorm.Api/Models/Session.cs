@@ -19,7 +19,7 @@ namespace VoxStorm.Api.Models
         [Required]
         public string Method { get; set; } = "association";
         
-        public DateTime CreatedAt { get; set; } = DateTime.Now;
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         
         public DateTime? StartedAt { get; set; }
         

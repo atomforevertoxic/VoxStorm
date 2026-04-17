@@ -23,13 +23,17 @@ namespace VoxStorm.Api.Models
 
         public Session? Session { get; set; }
 
-        public DateTime CreatedAt { get; set; } = DateTime.Now;
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
         public int? ParentIdeaId { get; set; }
 
         public Idea? ParentIdea { get; set; }
 
         public int Relevance { get; set; } = 100;
+
+        public double? PositionX { get; set; }
+
+        public double? PositionY { get; set; }
 
         public ICollection<Idea> ChildIdeas { get; set; } = new List<Idea>();
     }

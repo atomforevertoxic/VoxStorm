@@ -29,6 +29,7 @@ export default function ActiveSession() {
   const recognitionRef = useRef(null);
   const silenceTimeoutRef = useRef(null);
   const accumulatedTranscriptRef = useRef('');
+  const sessionStartedAtRef = useRef(null);
 
   // Fetch session data
   useEffect(() => {
@@ -44,13 +45,17 @@ export default function ActiveSession() {
         // Ensure ideas is always an array
         const loadedIdeas = Array.isArray(data.ideas?.$values) ? data.ideas.$values : Array.isArray(data.ideas) ? data.ideas : [];
         setIdeas(loadedIdeas);
-        // Initialize default positions for all loaded ideas
+        // Initialize positions for all loaded ideas (use stored positions if available)
         const initialPositions = {};
         loadedIdeas.forEach((idea, idx) => {
-          const count = loadedIdeas.length || 1;
-          const angle = (idx * (360 / count)) * (Math.PI / 180);
-          const radius = 280;
-          initialPositions[idea.id] = { x: Math.cos(angle) * radius, y: Math.sin(angle) * radius };
+          if (idea.positionX != null && idea.positionY != null) {
+            initialPositions[idea.id] = { x: idea.positionX, y: idea.positionY };
+          } else {
+            const count = loadedIdeas.length || 1;
+            const angle = (idx * (360 / count)) * (Math.PI / 180);
+            const radius = 280;
+            initialPositions[idea.id] = { x: Math.cos(angle) * radius, y: Math.sin(angle) * radius };
+          }
         });
         setNodePositions(prev => ({ ...prev, ...initialPositions }));
         setIsLoading(false);
@@ -65,6 +70,21 @@ export default function ActiveSession() {
   // Submit idea to API
   const submitIdea = useCallback(async (text, clearManual = false, extra = {}) => {
     if (!text.trim()) return;
+
+    // Set startedAt on first idea submission
+    if (!sessionStartedAtRef.current && !session?.startedAt) {
+      sessionStartedAtRef.current = new Date().toISOString();
+      try {
+        await fetch(`http://localhost:5021/api/sessions/${sessionId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ startedAt: sessionStartedAtRef.current })
+        });
+        setSession(prev => ({ ...prev, startedAt: sessionStartedAtRef.current }));
+      } catch (err) {
+        console.error('Error setting startedAt:', err);
+      }
+    }
 
     try {
       const payload = {
@@ -375,8 +395,8 @@ export default function ActiveSession() {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          ...session,
           status: 'completed',
+          startedAt: session?.startedAt || sessionStartedAtRef.current,
           endedAt: new Date().toISOString()
         })
       });
@@ -415,6 +435,15 @@ export default function ActiveSession() {
   };
 
   const handleMouseUp = () => {
+    // Save position of the node that was being dragged
+    if (draggingNodeId != null && nodePositions[draggingNodeId]) {
+      const pos = nodePositions[draggingNodeId];
+      fetch(`http://localhost:5021/api/ideas/${draggingNodeId}/position`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ positionX: pos.x, positionY: pos.y })
+      }).catch(err => console.error('Error saving position:', err));
+    }
     setIsDragging(false);
     setDraggingNodeId(null);
   };

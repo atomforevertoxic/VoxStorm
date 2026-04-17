@@ -314,7 +314,8 @@ export default function Recap() {
     padding: '20px',
     boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
     border: '2px solid #a7f3d0',
-    maxWidth: '280px'
+    maxWidth: '280px',
+    overflow: 'visible'
   };
 
   return (
@@ -477,7 +478,7 @@ export default function Recap() {
             style={{ backgroundColor: '#ffffff', borderRadius: '16px', boxShadow: '0 10px 15px rgba(0,0,0,0.1)', padding: '24px' }}
           >
             <div
-              style={{ position: 'relative', borderRadius: '12px', backgroundColor: '#f8fafc', height: '600px' }}
+              style={{ position: 'relative', borderRadius: '12px', backgroundColor: '#f8fafc', minHeight: '600px', overflow: 'visible' }}
             >
               {/* SVG for connection lines */}
               <svg className="absolute inset-0 w-full h-full pointer-events-none">
@@ -536,7 +537,7 @@ export default function Recap() {
                     }}
                   >
                     <div style={mindMapNodeStyle}>
-                      <p style={{ color: '#1f2937', fontSize: '14px', fontWeight: '500', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 5, WebkitBoxOrient: 'vertical' }}>
+                      <p style={{ color: '#1f2937', fontSize: '14px', fontWeight: '500' }}>
                         {idea.text}
                       </p>
                       <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>

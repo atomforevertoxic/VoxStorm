@@ -124,7 +124,7 @@ namespace VoxStorm.Api.Controllers
                 ParticipantCount = session.Participants.Count,
                 Categories = categories,
                 IdeasPerParticipant = participantIdeas,
-                Ideas = ideas.OrderByDescending(i => i.CreatedAt).ToList(),
+                Ideas = ideas.OrderBy(i => i.CreatedAt).ToList(),
                 Participants = session.Participants.ToList()
             };
 

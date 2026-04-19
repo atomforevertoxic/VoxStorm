@@ -436,7 +436,7 @@ export default function Recap() {
                 </p>
               </div>
               <div>
-                <h3 style={{ fontSize: '12px', fontWeight: '500', color: '#6366f1', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>Статус</h3>
+                <span style={{ fontSize: '12px', fontWeight: '500', color: '#6366f1', textTransform: 'uppercase', letterSpacing: '0.05em', marginRight: '8px' }}>Статус:</span>
                 <span style={{ display: 'inline-block', backgroundColor: '#dcfce7', color: '#166534', padding: '4px 12px', borderRadius: '9999px', fontSize: '14px', fontWeight: '500' }}>
                   Завершена
                 </span>

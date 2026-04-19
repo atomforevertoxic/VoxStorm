@@ -86,7 +86,7 @@ namespace VoxStorm.Api.Controllers
                 return NotFound();
             }
 
-            var ideas = session.Ideas.ToList();
+            var ideas = session.Ideas.OrderBy(i => i.CreatedAt).ToList();
             TimeSpan duration = TimeSpan.Zero;
             if (session.StartedAt.HasValue && session.EndedAt.HasValue)
             {
@@ -108,6 +108,19 @@ namespace VoxStorm.Api.Controllers
                 .GroupBy(i => i.ParticipantId)
                 .ToDictionary(g => g.Key.Value, g => g.Count());
 
+            // Create clean idea DTOs without circular references
+            var ideaDtos = ideas.Select(i => new IdeaStatDto
+            {
+                Id = i.Id,
+                Text = i.Text,
+                Category = i.Category,
+                Relevance = i.Relevance,
+                IsApproved = i.IsApproved,
+                CreatedAt = i.CreatedAt,
+                PositionX = i.PositionX,
+                PositionY = i.PositionY
+            }).ToList();
+
             var stats = new SessionStatsDto
             {
                 SessionId = session.Id,
@@ -124,11 +137,35 @@ namespace VoxStorm.Api.Controllers
                 ParticipantCount = session.Participants.Count,
                 Categories = categories,
                 IdeasPerParticipant = participantIdeas,
-                Ideas = ideas.OrderBy(i => i.CreatedAt).ToList(),
-                Participants = session.Participants.ToList()
+                Ideas = ideaDtos,
+                Participants = session.Participants.Select(p => new ParticipantStatDto
+                {
+                    Id = p.Id,
+                    Name = p.Name
+                }).ToList(),
+                CenterPositionX = session.CenterPositionX,
+                CenterPositionY = session.CenterPositionY
             };
 
             return stats;
+        }
+
+        public class IdeaStatDto
+        {
+            public int Id { get; set; }
+            public string Text { get; set; }
+            public string Category { get; set; }
+            public int Relevance { get; set; }
+            public bool IsApproved { get; set; }
+            public DateTime CreatedAt { get; set; }
+            public double? PositionX { get; set; }
+            public double? PositionY { get; set; }
+        }
+
+        public class ParticipantStatDto
+        {
+            public int Id { get; set; }
+            public string Name { get; set; }
         }
 
         public class SessionStatsDto
@@ -147,8 +184,10 @@ namespace VoxStorm.Api.Controllers
             public int ParticipantCount { get; set; }
             public Dictionary<string, int> Categories { get; set; }
             public Dictionary<int, int> IdeasPerParticipant { get; set; }
-            public List<Idea> Ideas { get; set; }
-            public List<Participant> Participants { get; set; }
+            public List<IdeaStatDto> Ideas { get; set; }
+            public List<ParticipantStatDto> Participants { get; set; }
+            public double? CenterPositionX { get; set; }
+            public double? CenterPositionY { get; set; }
         }
 
         // POST: api/Sessions
@@ -215,6 +254,29 @@ namespace VoxStorm.Api.Controllers
             public string? Status { get; set; }
             public DateTime? StartedAt { get; set; }
             public DateTime? EndedAt { get; set; }
+        }
+
+        // PUT: api/Sessions/5/center-position
+        [HttpPut("{id}/center-position")]
+        public async Task<IActionResult> UpdateCenterPosition(int id, [FromBody] CenterPositionDto dto)
+        {
+            var session = await _context.Sessions.FindAsync(id);
+            if (session == null)
+            {
+                return NotFound();
+            }
+
+            session.CenterPositionX = dto.PositionX;
+            session.CenterPositionY = dto.PositionY;
+            await _context.SaveChangesAsync();
+
+            return NoContent();
+        }
+
+        public class CenterPositionDto
+        {
+            public double PositionX { get; set; }
+            public double PositionY { get; set; }
         }
 
         // DELETE: api/Sessions/5

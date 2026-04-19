@@ -26,7 +26,11 @@ namespace VoxStorm.Api.Models
         public DateTime? EndedAt { get; set; }
         
         public string Status { get; set; } = "pending";
-        
+
+        public double? CenterPositionX { get; set; }
+
+        public double? CenterPositionY { get; set; }
+
         public ICollection<Participant> Participants { get; set; } = new List<Participant>();
         
         public ICollection<Idea> Ideas { get; set; } = new List<Idea>();

@@ -45,16 +45,34 @@ export default function ActiveSession() {
         // Ensure ideas is always an array
         const loadedIdeas = Array.isArray(data.ideas?.$values) ? data.ideas.$values : Array.isArray(data.ideas) ? data.ideas : [];
         setIdeas(loadedIdeas);
+
+        // Initialize logging
+        window.sessionDebugLogs = [];
+        log(`=== SESSION ${sessionId} LOADED ===`);
+        log(`Center position from DB: x=${data.centerPositionX}, y=${data.centerPositionY}`);
+        log(`Number of ideas: ${loadedIdeas.length}`);
+
         // Initialize positions for all loaded ideas (use stored positions if available)
         const initialPositions = {};
+        // Load center position if available
+        if (data.centerPositionX != null && data.centerPositionY != null) {
+          initialPositions['center'] = { x: data.centerPositionX, y: data.centerPositionY };
+          log(`Center loaded at: x=${data.centerPositionX}, y=${data.centerPositionY}`);
+        } else {
+          log(`Center position is null, using default (0, 0)`);
+        }
         loadedIdeas.forEach((idea, idx) => {
           if (idea.positionX != null && idea.positionY != null) {
             initialPositions[idea.id] = { x: idea.positionX, y: idea.positionY };
+            log(`Idea ${idea.id} loaded at: x=${idea.positionX}, y=${idea.positionY} (text: "${idea.text.substring(0, 20)}...")`);
           } else {
             const count = loadedIdeas.length || 1;
             const angle = (idx * (360 / count)) * (Math.PI / 180);
             const radius = 280;
-            initialPositions[idea.id] = { x: Math.cos(angle) * radius, y: Math.sin(angle) * radius };
+            const circularX = Math.cos(angle) * radius;
+            const circularY = Math.sin(angle) * radius;
+            initialPositions[idea.id] = { x: circularX, y: circularY };
+            log(`Idea ${idea.id} NO SAVED POSITION - using circular: x=${circularX.toFixed(2)}, y=${circularY.toFixed(2)} (text: "${idea.text.substring(0, 20)}...")`);
           }
         });
         setNodePositions(prev => ({ ...prev, ...initialPositions }));
@@ -306,6 +324,91 @@ export default function ActiveSession() {
     };
   }, [isListening, resetSilenceTimer]);
 
+  // Helper function for logging
+  const log = (message) => {
+    console.log(message);
+    if (!window.sessionDebugLogs) {
+      window.sessionDebugLogs = [];
+    }
+    window.sessionDebugLogs.push(`[${new Date().toISOString()}] ${message}`);
+  };
+
+  // Save logs to file
+  const saveLogsToFile = () => {
+    const logs = window.sessionDebugLogs || [];
+    const logText = logs.join('\n');
+    const blob = new Blob([logText], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `voxstorm-logs-${Date.now()}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  // Pan handlers
+  const handleMouseDown = (e) => {
+    if (e.target === containerRef.current || e.target.closest('.mind-map-content')) {
+      setIsDragging(true);
+      setDragStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
+    }
+  };
+
+  const handleMouseMove = (e) => {
+    if (isDragging) {
+      setPan({
+        x: e.clientX - dragStart.x,
+        y: e.clientY - dragStart.y
+      });
+    }
+    if (draggingNodeId !== null) {
+      handleNodeMouseMove(e);
+    }
+  };
+
+  const handleMouseUp = useCallback(() => {
+    // Just clear dragging state - positions are kept in memory only
+    if (draggingNodeId != null) {
+      const pos = nodePositions[draggingNodeId];
+      log(`Mouse UP - ${draggingNodeId === 'center' ? 'center' : 'idea ' + draggingNodeId} position: x=${pos.x.toFixed(2)}, y=${pos.y.toFixed(2)}`);
+    }
+    setIsDragging(false);
+    setDraggingNodeId(null);
+  }, [draggingNodeId, nodePositions]);
+
+  // Node-specific drag handlers
+  const handleNodeMouseDown = (e, nodeId, currentX, currentY) => {
+    e.stopPropagation();
+    e.preventDefault();
+    log(`Starting drag for node: ${nodeId}`);
+    const rect = containerRef.current?.getBoundingClientRect();
+    if (rect) {
+      const containerCenterX = rect.width / 2;
+      const containerCenterY = rect.height / 2;
+      setDraggingNodeId(nodeId);
+      setDraggingNodeOffset({
+        x: e.clientX - containerCenterX - currentX,
+        y: e.clientY - containerCenterY - currentY
+      });
+    }
+  };
+
+  const handleNodeMouseMove = (e) => {
+    if (draggingNodeId !== null) {
+      const rect = containerRef.current?.getBoundingClientRect();
+      if (rect) {
+        const containerCenterX = rect.width / 2;
+        const containerCenterY = rect.height / 2;
+        const newX = e.clientX - containerCenterX - draggingNodeOffset.x;
+        const newY = e.clientY - containerCenterY - draggingNodeOffset.y;
+        setNodePositions(prev => ({
+          ...prev,
+          [draggingNodeId]: { x: newX, y: newY }
+        }));
+      }
+    }
+  };
+
   // Attach wheel event with passive: false to allow preventDefault
   useEffect(() => {
     const container = containerRef.current;
@@ -320,6 +423,16 @@ export default function ActiveSession() {
     container.addEventListener('wheel', handleWheel, { passive: false });
     return () => container.removeEventListener('wheel', handleWheel);
   }, []);
+
+  // Global mouse up listener to ensure positions are saved when dragging ends
+  useEffect(() => {
+    const handleGlobalMouseUp = () => {
+      handleMouseUp();
+    };
+
+    window.addEventListener('mouseup', handleGlobalMouseUp);
+    return () => window.removeEventListener('mouseup', handleGlobalMouseUp);
+  }, [handleMouseUp]);
 
   const toggleVoiceInput = () => {
     if (!recognitionRef.current) {
@@ -391,6 +504,20 @@ export default function ActiveSession() {
 
   const finishSession = async () => {
     try {
+      // Save all current positions to localStorage before finishing
+      const positionsData = {
+        sessionId: sessionId,
+        centerPosition: nodePositions['center'] || { x: 0, y: 0 },
+        ideaPositions: {}
+      };
+      ideas.forEach(idea => {
+        if (nodePositions[idea.id]) {
+          positionsData.ideaPositions[idea.id] = nodePositions[idea.id];
+        }
+      });
+      localStorage.setItem(`voxstorm-positions-${sessionId}`, JSON.stringify(positionsData));
+      log(`Saved ${Object.keys(positionsData.ideaPositions).length} idea positions to localStorage`);
+
       await fetch(`http://localhost:5021/api/sessions/${sessionId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -412,72 +539,6 @@ export default function ActiveSession() {
   const resetView = () => {
     setScale(1);
     setPan({ x: 0, y: 0 });
-  };
-
-  // Pan handlers
-  const handleMouseDown = (e) => {
-    if (e.target === containerRef.current || e.target.closest('.mind-map-content')) {
-      setIsDragging(true);
-      setDragStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
-    }
-  };
-
-  const handleMouseMove = (e) => {
-    if (isDragging) {
-      setPan({
-        x: e.clientX - dragStart.x,
-        y: e.clientY - dragStart.y
-      });
-    }
-    if (draggingNodeId !== null) {
-      handleNodeMouseMove(e);
-    }
-  };
-
-  const handleMouseUp = () => {
-    // Save position of the node that was being dragged
-    if (draggingNodeId != null && nodePositions[draggingNodeId]) {
-      const pos = nodePositions[draggingNodeId];
-      fetch(`http://localhost:5021/api/ideas/${draggingNodeId}/position`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ positionX: pos.x, positionY: pos.y })
-      }).catch(err => console.error('Error saving position:', err));
-    }
-    setIsDragging(false);
-    setDraggingNodeId(null);
-  };
-
-  // Node-specific drag handlers
-  const handleNodeMouseDown = (e, nodeId, currentX, currentY) => {
-    e.stopPropagation();
-    e.preventDefault();
-    const rect = containerRef.current?.getBoundingClientRect();
-    if (rect) {
-      const containerCenterX = rect.width / 2;
-      const containerCenterY = rect.height / 2;
-      setDraggingNodeId(nodeId);
-      setDraggingNodeOffset({
-        x: e.clientX - containerCenterX - currentX,
-        y: e.clientY - containerCenterY - currentY
-      });
-    }
-  };
-
-  const handleNodeMouseMove = (e) => {
-    if (draggingNodeId !== null) {
-      const rect = containerRef.current?.getBoundingClientRect();
-      if (rect) {
-        const containerCenterX = rect.width / 2;
-        const containerCenterY = rect.height / 2;
-        const newX = e.clientX - containerCenterX - draggingNodeOffset.x;
-        const newY = e.clientY - containerCenterY - draggingNodeOffset.y;
-        setNodePositions(prev => ({
-          ...prev,
-          [draggingNodeId]: { x: newX, y: newY }
-        }));
-      }
-    }
   };
 
   if (isLoading) {
@@ -604,6 +665,13 @@ export default function ActiveSession() {
                   title="Сбросить вид"
                 >
                   Сбросить
+                </button>
+                <button
+                  onClick={saveLogsToFile}
+                  className="ml-2 px-3 py-1 bg-yellow-100 text-yellow-700 rounded-lg hover:bg-yellow-200 transition-colors text-sm"
+                  title="Сохранить логи в файл"
+                >
+                  📥 Логи
                 </button>
                 <span className="text-xs text-gray-400 ml-2">Колёсико мыши или перетаскивание для навигации</span>
               </div>

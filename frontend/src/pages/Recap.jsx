@@ -18,22 +18,51 @@ export default function Recap() {
         const response = await fetch(`http://localhost:5021/api/sessions/${sessionId}/stats`);
         if (!response.ok) throw new Error('Session not found');
         const data = await response.json();
-        // Normalize: handle both clean JSON and legacy $values/$ref wrappers
-        const normalize = (val) => {
-          if (!val) return [];
-          if (Array.isArray(val)) return val;
-          if (val.$values) return val.$values;
-          return [];
+
+        // Load positions from localStorage
+        const positionsKey = `voxstorm-positions-${sessionId}`;
+        const savedPositions = localStorage.getItem(positionsKey);
+        let positionsData = null;
+        if (savedPositions) {
+          try {
+            positionsData = JSON.parse(savedPositions);
+          } catch (e) {
+            console.error('Error parsing positions from localStorage:', e);
+          }
+        }
+
+        // Initialize logging
+        window.recapDebugLogs = [];
+        const recapLog = (msg) => {
+          console.log(msg);
+          window.recapDebugLogs.push(`[${new Date().toISOString()}] ${msg}`);
         };
-        const normalizedData = {
+
+        recapLog(`=== RECAP FOR SESSION ${sessionId} ===`);
+        recapLog(`Positions from localStorage: ${savedPositions ? 'FOUND' : 'NOT FOUND'}`);
+        if (positionsData) {
+          recapLog(`Center position from localStorage: x=${positionsData.centerPosition.x}, y=${positionsData.centerPosition.y}`);
+          recapLog(`Idea positions from localStorage: ${Object.keys(positionsData.ideaPositions).length} ideas`);
+        }
+
+        // Merge localStorage positions with stats data
+        const enrichedData = {
           ...data,
-          participants: normalize(data.participants),
-          ideas: normalize(data.ideas),
-          categories: data.categories && !Array.isArray(data.categories) && data.categories.$id
-            ? data.categories  // legacy format - keep as-is
-            : data.categories || {}
+          centerPositionX: positionsData?.centerPosition?.x ?? 0,
+          centerPositionY: positionsData?.centerPosition?.y ?? 0,
+          ideas: data.ideas.map(idea => ({
+            ...idea,
+            positionX: positionsData?.ideaPositions?.[idea.id]?.x ?? null,
+            positionY: positionsData?.ideaPositions?.[idea.id]?.y ?? null
+          }))
         };
-        setStats(normalizedData);
+
+        recapLog(`Final ideas with positions:`);
+        enrichedData.ideas.forEach(idea => {
+          recapLog(`Idea ${idea.id}: pos=(${idea.positionX}, ${idea.positionY}), text="${idea.text.substring(0, 20)}..."`);
+        });
+
+        setStats(enrichedData);
         setIsLoading(false);
       } catch (err) {
         setError(err.message);
@@ -342,6 +371,22 @@ export default function Recap() {
             </h2>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
               <button
+                onClick={() => {
+                  const logs = window.recapDebugLogs || [];
+                  const logText = logs.join('\n');
+                  const blob = new Blob([logText], { type: 'text/plain' });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.download = `voxstorm-recap-logs-${Date.now()}.txt`;
+                  a.click();
+                  URL.revokeObjectURL(url);
+                }}
+                style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px', backgroundColor: '#f59e0b', color: '#ffffff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '14px', fontWeight: '500' }}
+              >
+                📥 Логи
+              </button>
+              <button
                 onClick={exportMindMapToPng}
                 disabled={isExporting}
                 style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px', backgroundColor: '#10b981', color: '#ffffff', border: 'none', borderRadius: '8px', cursor: isExporting ? 'not-allowed' : 'pointer', opacity: isExporting ? 0.5 : 1, fontSize: '14px', fontWeight: '500' }}
@@ -480,33 +525,36 @@ export default function Recap() {
             <div
               style={{ position: 'relative', borderRadius: '12px', backgroundColor: '#f8fafc', minHeight: '600px', overflow: 'visible' }}
             >
-              {/* SVG for connection lines */}
-              <svg className="absolute inset-0 w-full h-full pointer-events-none">
-                <defs>
-                  <linearGradient id="lineGradientRecap" x1="0%" y1="0%" x2="100%" y2="0%">
-                    <stop offset="0%" stopColor="#6366f1" stopOpacity="0.7" />
-                    <stop offset="100%" stopColor="#8b5cf6" stopOpacity="0.35" />
-                  </linearGradient>
-                </defs>
-                {stats.ideas.map((idea, idx) => {
-                  const { x, y } = getIdeaOffset(idea, idx, stats.ideas.length);
-                  return (
-                    <line
-                      key={`line-${idx}`}
-                      x1="50%"
-                      y1="50%"
-                      x2={`calc(50% + ${x}px)`}
-                      y2={`calc(50% + ${y}px)`}
-                      stroke="url(#lineGradientRecap)"
-                      strokeWidth="3"
-                      strokeLinecap="round"
-                    />
-                  );
-                })}
-              </svg>
+              {/* Connection lines - using div with rotation like ActiveSession */}
+              {stats.ideas.map((idea, idx) => {
+                const { x: ideaX, y: ideaY } = getIdeaOffset(idea, idx, stats.ideas.length);
+                const centerPosX = stats.centerPositionX ?? 0;
+                const centerPosY = stats.centerPositionY ?? 0;
+                const dx = ideaX - centerPosX;
+                const dy = ideaY - centerPosY;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                const lineAngle = Math.atan2(dy, dx);
+                return (
+                  <div
+                    key={`line-${idx}`}
+                    style={{
+                      position: 'absolute',
+                      left: `calc(50% + ${centerPosX}px)`,
+                      top: `calc(50% + ${centerPosY}px)`,
+                      width: `${distance}px`,
+                      height: '3px',
+                      background: 'linear-gradient(to right, rgba(99, 102, 241, 0.7), rgba(139, 92, 246, 0.35))',
+                      borderRadius: '2px',
+                      transform: `rotate(${lineAngle}rad)`,
+                      transformOrigin: '0 50%',
+                      pointerEvents: 'none'
+                    }}
+                  />
+                );
+              })}
 
-              {/* Central Theme */}
-              <div style={{ position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%, -50%)', zIndex: 20 }}>
+              {/* Central Theme - position from saved data */}
+              <div style={{ position: 'absolute', left: `calc(50% + ${stats.centerPositionX ?? 0}px)`, top: `calc(50% + ${stats.centerPositionY ?? 0}px)`, transform: 'translate(-50%, -50%)', zIndex: 20 }}>
                 <div style={{ minWidth: '240px', position: 'relative' }}>
                   <div style={{ position: 'absolute', inset: '-12px', background: 'linear-gradient(135deg, #6366f1, #8b5cf6, #a855f7)', borderRadius: '24px', opacity: 0.4, filter: 'blur(16px)' }}></div>
                   <div style={{ position: 'relative', background: 'linear-gradient(135deg, #6366f1, #8b5cf6, #a855f7)', borderRadius: '16px', padding: '24px', boxShadow: '0 25px 50px rgba(0,0,0,0.25)', border: '2px solid rgba(255,255,255,0.3)' }}>

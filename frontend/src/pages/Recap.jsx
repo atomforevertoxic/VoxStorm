@@ -48,6 +48,7 @@ export default function Recap() {
         // Merge localStorage positions with stats data
         const enrichedData = {
           ...data,
+          savedScale: positionsData?.scale ?? null,
           centerPositionX: positionsData?.centerPosition?.x ?? 0,
           centerPositionY: positionsData?.centerPosition?.y ?? 0,
           ideas: data.ideas.map(idea => ({
@@ -71,6 +72,46 @@ export default function Recap() {
     };
     fetchStats();
   }, [sessionId]);
+
+  // Use saved scale from session, or auto-fit if not available
+  const getMindMapScale = () => {
+    if (stats?.savedScale) return stats.savedScale;
+    return calcFitScale();
+  };
+
+  // Calculate scale to fit all nodes within the mind map container
+  const calcFitScale = () => {
+    if (!stats || stats.ideas.length === 0) return 1;
+
+    const containerW = 1100;
+    const containerH = 600;
+    const nodeW = 280;
+    const nodeH = 100;
+    const padding = 40;
+
+    const cx = stats.centerPositionX ?? 0;
+    const cy = stats.centerPositionY ?? 0;
+
+    let minX = cx - 120;
+    let maxX = cx + 120;
+    let minY = cy - 60;
+    let maxY = cy + 60;
+
+    stats.ideas.forEach((idea, idx) => {
+      const { x, y } = getIdeaOffset(idea, idx, stats.ideas.length);
+      minX = Math.min(minX, x - nodeW / 2);
+      maxX = Math.max(maxX, x + nodeW / 2);
+      minY = Math.min(minY, y - nodeH / 2);
+      maxY = Math.max(maxY, y + nodeH / 2);
+    });
+
+    const spanX = maxX - minX + padding * 2;
+    const spanY = maxY - minY + padding * 2;
+    const scaleX = containerW / spanX;
+    const scaleY = containerH / spanY;
+
+    return Math.min(1, Math.min(scaleX, scaleY));
+  };
 
   const getIdeaOffset = (idea, idx, total) => {
     if (idea.positionX != null && idea.positionY != null) {
@@ -523,8 +564,9 @@ export default function Recap() {
             style={{ backgroundColor: '#ffffff', borderRadius: '16px', boxShadow: '0 10px 15px rgba(0,0,0,0.1)', padding: '24px' }}
           >
             <div
-              style={{ position: 'relative', borderRadius: '12px', backgroundColor: '#f8fafc', minHeight: '600px', overflow: 'visible' }}
+              style={{ position: 'relative', borderRadius: '12px', backgroundColor: '#f8fafc', minHeight: '600px', overflow: 'hidden' }}
             >
+              <div style={{ transform: `scale(${getMindMapScale()})`, transformOrigin: 'center center', minHeight: '600px', position: 'relative' }}>
               {/* Connection lines - using div with rotation like ActiveSession */}
               {stats.ideas.map((idea, idx) => {
                 const { x: ideaX, y: ideaY } = getIdeaOffset(idea, idx, stats.ideas.length);
@@ -602,6 +644,7 @@ export default function Recap() {
                   </div>
                 );
               })}
+              </div>
             </div>
           </div>
         </div>

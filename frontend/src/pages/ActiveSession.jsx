@@ -240,6 +240,10 @@ export default function ActiveSession() {
     setPendingIdeas(prev => prev.filter(p => p.id !== pendingId));
   }, []);
 
+  // Keep processTranscript in a ref so the recognition instance always calls the latest version
+  const processTranscriptRef = useRef(processTranscript);
+  processTranscriptRef.current = processTranscript;
+
   // Reset silence timer when speech is detected
   const resetSilenceTimer = useCallback(() => {
     if (silenceTimeoutRef.current) {
@@ -247,82 +251,73 @@ export default function ActiveSession() {
     }
 
     silenceTimeoutRef.current = setTimeout(() => {
-      // 3 seconds of silence - process the accumulated transcript
-      processTranscript();
+      processTranscriptRef.current();
     }, 3000);
-  }, [processTranscript]);
+  }, []);
 
   // Setup Web Speech API with continuous listening and silence detection
+  // Created once; restart is handled by onend when isListeningRef is true
   useEffect(() => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) return;
 
-    if (SpeechRecognition) {
-      const createRecognition = () => {
-        const recognition = new SpeechRecognition();
-        recognition.continuous = true;
-        recognition.interimResults = true;
-        recognition.lang = 'ru-RU';
+    const recognition = new SpeechRecognition();
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.lang = 'ru-RU';
+    recognitionRef.current = recognition;
 
-        recognition.onresult = (event) => {
-          let finalTranscript = '';
-          let interimTranscript = '';
+    recognition.onresult = (event) => {
+      let finalTranscript = '';
+      let interimTranscript = '';
 
-          for (let i = event.resultIndex; i < event.results.length; i++) {
-            const result = event.results[i];
-            if (result.isFinal) {
-              finalTranscript += result[0].transcript + ' ';
-            } else {
-              interimTranscript += result[0].transcript;
-            }
-          }
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const result = event.results[i];
+        if (result.isFinal) {
+          finalTranscript += result[0].transcript + ' ';
+        } else {
+          interimTranscript += result[0].transcript;
+        }
+      }
 
-          // Accumulate final transcripts
-          if (finalTranscript) {
-            accumulatedTranscriptRef.current += finalTranscript;
-            // Show current accumulated text + interim
-            setTranscript(accumulatedTranscriptRef.current.trim() + (interimTranscript ? ' ' + interimTranscript : ''));
-            // Reset silence timer on new speech
-            resetSilenceTimer();
-          } else if (interimTranscript) {
-            // Just show interim results while speaking
-            setTranscript(accumulatedTranscriptRef.current.trim() + ' ' + interimTranscript);
-          }
-        };
+      if (finalTranscript) {
+        accumulatedTranscriptRef.current += finalTranscript;
+        setTranscript(accumulatedTranscriptRef.current.trim() + (interimTranscript ? ' ' + interimTranscript : ''));
+        resetSilenceTimer();
+      } else if (interimTranscript) {
+        setTranscript(accumulatedTranscriptRef.current.trim() + ' ' + interimTranscript);
+      }
+    };
 
-        recognition.onerror = (event) => {
-          console.error('Speech recognition error:', event.error);
-          // Don't stop on common errors like 'no-speech' - restart instead
-          if (event.error !== 'no-speech' && event.error !== 'aborted') {
-            setIsListening(false);
-          }
-        };
+    recognition.onerror = (event) => {
+      console.error('Speech recognition error:', event.error);
+      if (event.error !== 'no-speech' && event.error !== 'aborted') {
+        setIsListening(false);
+      }
+    };
 
-        recognition.onend = () => {
-          // Restart recognition to keep continuous listening
-          if (isListening && recognitionRef.current) {
-            try {
-              recognitionRef.current.start();
-            } catch (e) {
-              console.log('Recognition restart failed:', e);
-            }
-          }
-        };
-
-        return recognition;
-      };
-
-      recognitionRef.current = createRecognition();
-    }
+    recognition.onend = () => {
+      if (isListeningRef.current && recognitionRef.current) {
+        try {
+          recognitionRef.current.start();
+        } catch (e) {
+          console.log('Recognition restart failed:', e);
+        }
+      }
+    };
 
     return () => {
-      if (recognitionRef.current) {
-        recognitionRef.current.stop();
-      }
+      recognitionRef.current = null;
+      recognition.stop();
       if (silenceTimeoutRef.current) {
         clearTimeout(silenceTimeoutRef.current);
       }
     };
-  }, [isListening, resetSilenceTimer]);
+  }, [resetSilenceTimer]);
+
+  // Keep isListening in a ref so onend always reads the current value
+  const isListeningRef = useRef(isListening);
+  isListeningRef.current = isListening;
 
   // Helper function for logging
   const log = (message) => {
@@ -504,9 +499,20 @@ export default function ActiveSession() {
 
   const finishSession = async () => {
     try {
+      // Stop voice input
+      setIsListening(false);
+      if (recognitionRef.current) {
+        try { recognitionRef.current.stop(); } catch (e) { /* ignore */ }
+        recognitionRef.current = null;
+      }
+      if (silenceTimeoutRef.current) {
+        clearTimeout(silenceTimeoutRef.current);
+      }
+
       // Save all current positions to localStorage before finishing
       const positionsData = {
         sessionId: sessionId,
+        scale: scale,
         centerPosition: nodePositions['center'] || { x: 0, y: 0 },
         ideaPositions: {}
       };
@@ -665,13 +671,6 @@ export default function ActiveSession() {
                   title="Сбросить вид"
                 >
                   Сбросить
-                </button>
-                <button
-                  onClick={saveLogsToFile}
-                  className="ml-2 px-3 py-1 bg-yellow-100 text-yellow-700 rounded-lg hover:bg-yellow-200 transition-colors text-sm"
-                  title="Сохранить логи в файл"
-                >
-                  📥 Логи
                 </button>
                 <span className="text-xs text-gray-400 ml-2">Колёсико мыши или перетаскивание для навигации</span>
               </div>

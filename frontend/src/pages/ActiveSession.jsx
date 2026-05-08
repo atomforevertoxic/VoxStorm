@@ -24,6 +24,9 @@ export default function ActiveSession() {
   const [nodePositions, setNodePositions] = useState({});
   const [draggingNodeId, setDraggingNodeId] = useState(null);
   const [draggingNodeOffset, setDraggingNodeOffset] = useState({ x: 0, y: 0 });
+  const [selectedNodeId, setSelectedNodeId] = useState('center');
+  const selectedNodeIdRef = useRef('center');
+  const [ideaConnections, setIdeaConnections] = useState({});
   const containerRef = useRef(null);
 
   const recognitionRef = useRef(null);
@@ -45,6 +48,10 @@ export default function ActiveSession() {
         // Ensure ideas is always an array
         const loadedIdeas = Array.isArray(data.ideas?.$values) ? data.ideas.$values : Array.isArray(data.ideas) ? data.ideas : [];
         setIdeas(loadedIdeas);
+        // Initialize connections — all loaded ideas connect to center
+        const initConnections = {};
+        loadedIdeas.forEach(idea => { initConnections[idea.id] = 'center'; });
+        setIdeaConnections(initConnections);
 
         // Initialize logging
         window.sessionDebugLogs = [];
@@ -84,6 +91,10 @@ export default function ActiveSession() {
     };
     fetchSession();
   }, [sessionId]);
+
+  useEffect(() => {
+    selectedNodeIdRef.current = selectedNodeId;
+  }, [selectedNodeId]);
 
   // Submit idea to API
   const submitIdea = useCallback(async (text, clearManual = false, extra = {}) => {
@@ -128,17 +139,23 @@ export default function ActiveSession() {
 
       const newIdea = await response.json();
       console.log('New idea added:', newIdea);
+      setIdeaConnections(prev => ({ ...prev, [newIdea.id]: selectedNodeIdRef.current }));
       setIdeas(prevIdeas => {
         console.log('Previous ideas:', prevIdeas);
         const updated = [...(prevIdeas || []), newIdea];
         console.log('Updated ideas:', updated);
-        // Set initial position for the new idea node
-        const count = updated.length || 1;
-        const angle = ((updated.length - 1) * (360 / count)) * (Math.PI / 180);
-        const radius = 280;
+        // Set initial position near the connected target node
+        const connTarget = selectedNodeIdRef.current;
+        const targetPos = nodePositions[connTarget];
+        const offset = 200;
+        const existingCount = updated.filter(i => ideaConnections[i.id] === connTarget || (connTarget === 'center' && !ideaConnections[i.id])).length;
+        const spreadAngle = ((existingCount - 1) * (60)) * (Math.PI / 180);
+        const baseAngle = connTarget === 'center' ? -Math.PI / 2 : Math.random() * Math.PI * 2;
+        const posX = (targetPos?.x ?? 0) + Math.cos(baseAngle + spreadAngle) * offset;
+        const posY = (targetPos?.y ?? 0) + Math.sin(baseAngle + spreadAngle) * offset;
         setNodePositions(prev => ({
           ...prev,
-          [newIdea.id]: { x: Math.cos(angle) * radius, y: Math.sin(angle) * radius }
+          [newIdea.id]: { x: posX, y: posY }
         }));
         return updated;
       });
@@ -344,6 +361,9 @@ export default function ActiveSession() {
   // Pan handlers
   const handleMouseDown = (e) => {
     if (e.target === containerRef.current || e.target.closest('.mind-map-content')) {
+      if (!e.target.closest('.mind-map-node')) {
+        setSelectedNodeId('center');
+      }
       setIsDragging(true);
       setDragStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
     }
@@ -365,7 +385,9 @@ export default function ActiveSession() {
     // Just clear dragging state - positions are kept in memory only
     if (draggingNodeId != null) {
       const pos = nodePositions[draggingNodeId];
-      log(`Mouse UP - ${draggingNodeId === 'center' ? 'center' : 'idea ' + draggingNodeId} position: x=${pos.x.toFixed(2)}, y=${pos.y.toFixed(2)}`);
+      if (pos) {
+        log(`Mouse UP - ${draggingNodeId === 'center' ? 'center' : 'idea ' + draggingNodeId} position: x=${pos.x.toFixed(2)}, y=${pos.y.toFixed(2)}`);
+      }
     }
     setIsDragging(false);
     setDraggingNodeId(null);
@@ -705,11 +727,22 @@ export default function ActiveSession() {
                       const customPos = nodePositions[idea.id];
                       const offsetX = customPos?.x ?? Math.cos(angle) * radius;
                       const offsetY = customPos?.y ?? Math.sin(angle) * radius;
-                      const centerPos = nodePositions['center'];
-                      const centerOffsetX = centerPos?.x ?? 0;
-                      const centerOffsetY = centerPos?.y ?? 0;
-                      const dx = offsetX - centerOffsetX;
-                      const dy = offsetY - centerOffsetY;
+                      // Resolve target position based on this idea's connection
+                      const connectedTo = ideaConnections[idea.id] ?? 'center';
+                      let targetX, targetY;
+                      if (connectedTo === 'center') {
+                        targetX = nodePositions['center']?.x ?? 0;
+                        targetY = nodePositions['center']?.y ?? 0;
+                      } else {
+                        const tIdx = ideas.findIndex(i => i.id === connectedTo);
+                        const tCount = ideas.length || 1;
+                        const tAngle = (tIdx * (360 / tCount)) * (Math.PI / 180);
+                        const tPos = nodePositions[connectedTo];
+                        targetX = tPos?.x ?? Math.cos(tAngle) * 280;
+                        targetY = tPos?.y ?? Math.sin(tAngle) * 280;
+                      }
+                      const dx = offsetX - targetX;
+                      const dy = offsetY - targetY;
                       const distance = Math.sqrt(dx * dx + dy * dy);
                       const lineAngle = Math.atan2(dy, dx);
                       return (
@@ -717,8 +750,8 @@ export default function ActiveSession() {
                           key={`line-${idx}`}
                           className="absolute pointer-events-none"
                           style={{
-                            left: `calc(50% + ${centerOffsetX}px)`,
-                            top: `calc(50% + ${centerOffsetY}px)`,
+                            left: `calc(50% + ${targetX}px)`,
+                            top: `calc(50% + ${targetY}px)`,
                             width: `${distance}px`,
                             height: '3px',
                             background: 'linear-gradient(to right, rgba(99, 102, 241, 0.7), rgba(139, 92, 246, 0.35))',
@@ -732,13 +765,14 @@ export default function ActiveSession() {
 
                     {/* Central Theme - Root Node (MAIN ELEMENT) */}
                     <div
-                      className="absolute z-20 cursor-grab active:cursor-grabbing"
+                      className={`mind-map-node absolute z-20 cursor-grab active:cursor-grabbing ${selectedNodeId === 'center' ? 'ring-4 ring-indigo-400 rounded-2xl' : ''}`}
                       style={{
                         left: `calc(50% + ${nodePositions['center']?.x ?? 0}px)`,
                         top: `calc(50% + ${nodePositions['center']?.y ?? 0}px)`,
                         transform: 'translate(-50%, -50%)'
                       }}
                       onMouseDown={(e) => handleNodeMouseDown(e, 'center', nodePositions['center']?.x ?? 0, nodePositions['center']?.y ?? 0)}
+                      onClick={(e) => { e.stopPropagation(); setSelectedNodeId('center'); }}
                     >
                       <div className="relative min-w-[240px]">
                         {/* Glow effect */}
@@ -786,12 +820,13 @@ export default function ActiveSession() {
                       return (
                         <div
                           key={idea.id || idx}
-                          className="absolute transform -translate-x-1/2 -translate-y-1/2 transition-all hover:scale-110 hover:z-30 cursor-grab active:cursor-grabbing"
+                          className={`mind-map-node absolute transform -translate-x-1/2 -translate-y-1/2 transition-all hover:scale-110 hover:z-30 cursor-grab active:cursor-grabbing ${selectedNodeId === idea.id ? 'ring-4 ring-indigo-400 rounded-xl z-30' : ''}`}
                           style={{
                             left: `calc(50% + ${offsetX}px)`,
                             top: `calc(50% + ${offsetY}px)`
                           }}
                           onMouseDown={(e) => handleNodeMouseDown(e, idea.id, offsetX, offsetY)}
+                          onClick={(e) => { e.stopPropagation(); setSelectedNodeId(idea.id); }}
                         >
                           <div className="bg-gradient-to-br from-emerald-50 to-teal-50 rounded-xl p-5 shadow-lg border-2 border-emerald-200 hover:border-emerald-400 hover:shadow-xl transition-all max-w-[280px]">
                             <p className="text-gray-800 text-sm font-medium" style={{

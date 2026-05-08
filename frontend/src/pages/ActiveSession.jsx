@@ -48,9 +48,20 @@ export default function ActiveSession() {
         // Ensure ideas is always an array
         const loadedIdeas = Array.isArray(data.ideas?.$values) ? data.ideas.$values : Array.isArray(data.ideas) ? data.ideas : [];
         setIdeas(loadedIdeas);
-        // Initialize connections — all loaded ideas connect to center
+
+        // Load saved data from localStorage
+        const positionsKey = `voxstorm-positions-${sessionId}`;
+        let savedData = null;
+        try {
+          const raw = localStorage.getItem(positionsKey);
+          if (raw) savedData = JSON.parse(raw);
+        } catch (e) { /* ignore */ }
+
+        // Initialize connections — use saved connections or fallback to center
         const initConnections = {};
-        loadedIdeas.forEach(idea => { initConnections[idea.id] = 'center'; });
+        loadedIdeas.forEach(idea => {
+          initConnections[idea.id] = savedData?.connections?.[idea.id] ?? 'center';
+        });
         setIdeaConnections(initConnections);
 
         // Initialize logging
@@ -58,28 +69,25 @@ export default function ActiveSession() {
         log(`=== SESSION ${sessionId} LOADED ===`);
         log(`Center position from DB: x=${data.centerPositionX}, y=${data.centerPositionY}`);
         log(`Number of ideas: ${loadedIdeas.length}`);
+        log(`Saved data from localStorage: ${savedData ? 'FOUND' : 'NOT FOUND'}`);
 
-        // Initialize positions for all loaded ideas (use stored positions if available)
+        // Initialize positions — prefer localStorage, then DB, then circular fallback
         const initialPositions = {};
-        // Load center position if available
-        if (data.centerPositionX != null && data.centerPositionY != null) {
+        if (savedData?.centerPosition) {
+          initialPositions['center'] = savedData.centerPosition;
+        } else if (data.centerPositionX != null && data.centerPositionY != null) {
           initialPositions['center'] = { x: data.centerPositionX, y: data.centerPositionY };
-          log(`Center loaded at: x=${data.centerPositionX}, y=${data.centerPositionY}`);
-        } else {
-          log(`Center position is null, using default (0, 0)`);
         }
         loadedIdeas.forEach((idea, idx) => {
-          if (idea.positionX != null && idea.positionY != null) {
+          if (savedData?.ideaPositions?.[idea.id]) {
+            initialPositions[idea.id] = savedData.ideaPositions[idea.id];
+          } else if (idea.positionX != null && idea.positionY != null) {
             initialPositions[idea.id] = { x: idea.positionX, y: idea.positionY };
-            log(`Idea ${idea.id} loaded at: x=${idea.positionX}, y=${idea.positionY} (text: "${idea.text.substring(0, 20)}...")`);
           } else {
             const count = loadedIdeas.length || 1;
             const angle = (idx * (360 / count)) * (Math.PI / 180);
             const radius = 280;
-            const circularX = Math.cos(angle) * radius;
-            const circularY = Math.sin(angle) * radius;
-            initialPositions[idea.id] = { x: circularX, y: circularY };
-            log(`Idea ${idea.id} NO SAVED POSITION - using circular: x=${circularX.toFixed(2)}, y=${circularY.toFixed(2)} (text: "${idea.text.substring(0, 20)}...")`);
+            initialPositions[idea.id] = { x: Math.cos(angle) * radius, y: Math.sin(angle) * radius };
           }
         });
         setNodePositions(prev => ({ ...prev, ...initialPositions }));
@@ -519,7 +527,7 @@ export default function ActiveSession() {
     setManualInput('');
   };
 
-  const finishSession = async () => {
+  const finishSession = async (navigateTo = null) => {
     try {
       // Stop voice input
       setIsListening(false);
@@ -536,7 +544,8 @@ export default function ActiveSession() {
         sessionId: sessionId,
         scale: scale,
         centerPosition: nodePositions['center'] || { x: 0, y: 0 },
-        ideaPositions: {}
+        ideaPositions: {},
+        connections: ideaConnections
       };
       ideas.forEach(idea => {
         if (nodePositions[idea.id]) {
@@ -555,7 +564,7 @@ export default function ActiveSession() {
           endedAt: new Date().toISOString()
         })
       });
-      navigate(`/session/${sessionId}/recap`);
+      navigate(navigateTo || `/session/${sessionId}/recap`);
     } catch (err) {
       console.error('Error finishing session:', err);
     }
@@ -591,7 +600,7 @@ export default function ActiveSession() {
         {/* Header */}
         <div className="flex justify-between items-center mb-6">
           <button
-            onClick={() => navigate('/')}
+            onClick={() => finishSession('/')}
             className="text-indigo-600 hover:text-indigo-800 font-medium"
           >
             ← Назад к списку
@@ -601,7 +610,7 @@ export default function ActiveSession() {
               Сессия активна
             </span>
             <button
-              onClick={finishSession}
+              onClick={() => finishSession()}
               className="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition-colors"
             >
               Завершить сессию

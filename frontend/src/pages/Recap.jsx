@@ -8,6 +8,7 @@ export default function Recap() {
   const mindMapRef = useRef(null);
 
   const [stats, setStats] = useState(null);
+  const [ideaConnections, setIdeaConnections] = useState({});
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [isExporting, setIsExporting] = useState(false);
@@ -64,6 +65,14 @@ export default function Recap() {
         });
 
         setStats(enrichedData);
+        // Load connections from localStorage
+        if (positionsData?.connections) {
+          setIdeaConnections(positionsData.connections);
+        } else {
+          const fallback = {};
+          data.ideas.forEach(idea => { fallback[idea.id] = 'center'; });
+          setIdeaConnections(fallback);
+        }
         setIsLoading(false);
       } catch (err) {
         setError(err.message);
@@ -523,30 +532,54 @@ export default function Recap() {
               Идеи ({stats.ideas.length})
             </h3>
             <div style={ideasListStyle}>
-              {stats.ideas.map((idea, idx) => (
-                <div key={idx} style={ideaCardStyle}>
-                  <span style={{ width: '32px', height: '32px', backgroundColor: '#10b981', color: '#ffffff', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', fontWeight: 'bold', flexShrink: 0 }}>
-                    {idx + 1}
-                  </span>
-                  <div style={{ flex: 1 }}>
-                    <p style={{ color: '#1f2937', fontWeight: '500' }}>{idea.text}</p>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '8px', fontSize: '14px', color: '#6b7280' }}>
-                      <span>{formatDate(idea.createdAt)}</span>
-                      {idea.category && (
-                        <span style={{ backgroundColor: '#f3e8ff', color: '#7c3aed', padding: '2px 8px', borderRadius: '4px' }}>
-                          {idea.category}
+              {(() => {
+                const rootIdeas = stats.ideas.filter(i => ideaConnections[i.id] === 'center' || !ideaConnections[i.id]);
+                const childMap = {};
+                stats.ideas.filter(i => ideaConnections[i.id] && ideaConnections[i.id] !== 'center').forEach(i => {
+                  const parentId = ideaConnections[i.id];
+                  if (!childMap[parentId]) childMap[parentId] = [];
+                  childMap[parentId].push(i);
+                });
+
+                const renderIdea = (idea, num, depth) => {
+                  const accentColors = ['#10b981', '#6366f1', '#f59e0b', '#ef4444'];
+                  const accent = accentColors[depth % accentColors.length];
+                  const children = childMap[idea.id] || [];
+                  return (
+                    <React.Fragment key={idea.id || num}>
+                      <div style={{
+                        ...ideaCardStyle,
+                        borderLeft: `4px solid ${accent}`,
+                        marginLeft: depth * 40,
+                      }}>
+                        <span style={{ width: depth === 0 ? '32px' : '26px', height: depth === 0 ? '32px' : '26px', backgroundColor: accent, color: '#ffffff', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: depth === 0 ? '14px' : '11px', fontWeight: 'bold', flexShrink: 0 }}>
+                          {num}
                         </span>
-                      )}
-                      <span style={{ color: idea.relevance >= 70 ? '#059669' : idea.relevance >= 40 ? '#d97706' : '#dc2626', fontWeight: '600' }}>
-                        {idea.relevance >= 70 ? 'Высокий' : idea.relevance >= 40 ? 'Средний' : 'Низкий'} приоритет
-                      </span>
-                      {idea.isApproved && (
-                        <span style={{ color: '#059669' }}>Подтверждена</span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              ))}
+                        <div style={{ flex: 1 }}>
+                          <p style={{ color: '#1f2937', fontWeight: depth === 0 ? '500' : '400', fontSize: depth === 0 ? '15px' : '14px' }}>{idea.text}</p>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '8px', fontSize: '14px', color: '#6b7280' }}>
+                            <span>{formatDate(idea.createdAt)}</span>
+                            {idea.category && (
+                              <span style={{ backgroundColor: '#f3e8ff', color: '#7c3aed', padding: '2px 8px', borderRadius: '4px' }}>
+                                {idea.category}
+                              </span>
+                            )}
+                            <span style={{ color: idea.relevance >= 70 ? '#059669' : idea.relevance >= 40 ? '#d97706' : '#dc2626', fontWeight: '600' }}>
+                              {idea.relevance >= 70 ? 'Высокий' : idea.relevance >= 40 ? 'Средний' : 'Низкий'} приоритет
+                            </span>
+                            {idea.isApproved && (
+                              <span style={{ color: '#059669' }}>Подтверждена</span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                      {children.map((child, childIdx) => renderIdea(child, `${num}.${childIdx + 1}`, depth + 1))}
+                    </React.Fragment>
+                  );
+                };
+
+                return rootIdeas.map((idea, idx) => renderIdea(idea, idx + 1, 0));
+              })()}
             </div>
           </div>
 
@@ -570,10 +603,20 @@ export default function Recap() {
               {/* Connection lines - using div with rotation like ActiveSession */}
               {stats.ideas.map((idea, idx) => {
                 const { x: ideaX, y: ideaY } = getIdeaOffset(idea, idx, stats.ideas.length);
-                const centerPosX = stats.centerPositionX ?? 0;
-                const centerPosY = stats.centerPositionY ?? 0;
-                const dx = ideaX - centerPosX;
-                const dy = ideaY - centerPosY;
+                const connectedTo = ideaConnections[idea.id] ?? 'center';
+                let targetX, targetY;
+                if (connectedTo === 'center') {
+                  targetX = stats.centerPositionX ?? 0;
+                  targetY = stats.centerPositionY ?? 0;
+                } else {
+                  const tIdea = stats.ideas.find(i => i.id === connectedTo);
+                  const tIdx = tIdea ? stats.ideas.indexOf(tIdea) : 0;
+                  const tOffset = tIdea ? getIdeaOffset(tIdea, tIdx, stats.ideas.length) : { x: 0, y: 0 };
+                  targetX = tOffset.x;
+                  targetY = tOffset.y;
+                }
+                const dx = ideaX - targetX;
+                const dy = ideaY - targetY;
                 const distance = Math.sqrt(dx * dx + dy * dy);
                 const lineAngle = Math.atan2(dy, dx);
                 return (
@@ -581,8 +624,8 @@ export default function Recap() {
                     key={`line-${idx}`}
                     style={{
                       position: 'absolute',
-                      left: `calc(50% + ${centerPosX}px)`,
-                      top: `calc(50% + ${centerPosY}px)`,
+                      left: `calc(50% + ${targetX}px)`,
+                      top: `calc(50% + ${targetY}px)`,
                       width: `${distance}px`,
                       height: '3px',
                       background: 'linear-gradient(to right, rgba(99, 102, 241, 0.7), rgba(139, 92, 246, 0.35))',

@@ -815,7 +815,7 @@ export default function ActiveSession() {
                                   idea.relevance >= 40 ? 'bg-yellow-100 text-yellow-700' :
                                   'bg-red-100 text-red-700'
                                 }`}>
-                                  {idea.relevance || 100}%
+                                  {idea.relevance >= 70 ? 'Высокий' : idea.relevance >= 40 ? 'Средний' : 'Низкий'} приоритет
                                 </span>
                               </div>
                             </div>
@@ -932,7 +932,12 @@ export default function ActiveSession() {
                   className="flex items-start gap-3 p-4 bg-orange-50 border border-orange-200 rounded-lg"
                 >
                   <div className="flex-1">
-                    <p className="text-gray-800">{pending.text}</p>
+                    <input
+                      type="text"
+                      value={pending.text}
+                      onChange={(e) => setPendingIdeas(prev => prev.map(p => p.id === pending.id ? { ...p, text: e.target.value } : p))}
+                      className="w-full text-gray-800 bg-transparent border-b border-transparent hover:border-orange-300 focus:border-orange-400 focus:outline-none transition-colors"
+                    />
                     <div className="flex items-center gap-3 mt-1">
                       <p className="text-xs text-gray-400">
                         {new Date(pending.createdAt).toLocaleTimeString()}
@@ -948,7 +953,7 @@ export default function ActiveSession() {
                           pending.relevance >= 40 ? 'bg-yellow-100 text-yellow-700' :
                           'bg-red-100 text-red-700'
                         }`}>
-                          {pending.relevance}%
+                          {pending.relevance >= 70 ? 'Высокий' : pending.relevance >= 40 ? 'Средний' : 'Низкий'} приоритет
                         </span>
                       )}
                     </div>

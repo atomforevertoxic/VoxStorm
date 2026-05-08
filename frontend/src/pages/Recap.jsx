@@ -538,7 +538,7 @@ export default function Recap() {
                         </span>
                       )}
                       <span style={{ color: idea.relevance >= 70 ? '#059669' : idea.relevance >= 40 ? '#d97706' : '#dc2626', fontWeight: '600' }}>
-                        {idea.relevance}% релевантность
+                        {idea.relevance >= 70 ? 'Высокий' : idea.relevance >= 40 ? 'Средний' : 'Низкий'} приоритет
                       </span>
                       {idea.isApproved && (
                         <span style={{ color: '#059669' }}>Подтверждена</span>
@@ -632,7 +632,7 @@ export default function Recap() {
                       </p>
                       <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <span style={{ fontSize: '12px', color: idea.relevance >= 70 ? '#059669' : idea.relevance >= 40 ? '#d97706' : '#dc2626', fontWeight: '600' }}>
-                          {idea.relevance}%
+                          {idea.relevance >= 70 ? 'Высокий' : idea.relevance >= 40 ? 'Средний' : 'Низкий'}
                         </span>
                         {idea.category && (
                           <span style={{ fontSize: '11px', backgroundColor: '#f3e8ff', color: '#7c3aed', padding: '2px 6px', borderRadius: '4px' }}>

@@ -421,22 +421,6 @@ export default function Recap() {
             </h2>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
               <button
-                onClick={() => {
-                  const logs = window.recapDebugLogs || [];
-                  const logText = logs.join('\n');
-                  const blob = new Blob([logText], { type: 'text/plain' });
-                  const url = URL.createObjectURL(blob);
-                  const a = document.createElement('a');
-                  a.href = url;
-                  a.download = `voxstorm-recap-logs-${Date.now()}.txt`;
-                  a.click();
-                  URL.revokeObjectURL(url);
-                }}
-                style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px', backgroundColor: '#f59e0b', color: '#ffffff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '14px', fontWeight: '500' }}
-              >
-                📥 Логи
-              </button>
-              <button
                 onClick={exportMindMapToPng}
                 disabled={isExporting}
                 style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px', backgroundColor: '#10b981', color: '#ffffff', border: 'none', borderRadius: '8px', cursor: isExporting ? 'not-allowed' : 'pointer', opacity: isExporting ? 0.5 : 1, fontSize: '14px', fontWeight: '500' }}
@@ -552,9 +536,7 @@ export default function Recap() {
                         borderLeft: `4px solid ${accent}`,
                         marginLeft: depth * 40,
                       }}>
-                        <span style={{ width: depth === 0 ? '32px' : '26px', height: depth === 0 ? '32px' : '26px', backgroundColor: accent, color: '#ffffff', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: depth === 0 ? '14px' : '11px', fontWeight: 'bold', flexShrink: 0 }}>
-                          {num}
-                        </span>
+                        <span style={{ width: '10px', height: '10px', backgroundColor: accent, borderRadius: '50%', flexShrink: 0, marginTop: '6px' }}></span>
                         <div style={{ flex: 1 }}>
                           <p style={{ color: '#1f2937', fontWeight: depth === 0 ? '500' : '400', fontSize: depth === 0 ? '15px' : '14px' }}>{idea.text}</p>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '8px', fontSize: '14px', color: '#6b7280' }}>

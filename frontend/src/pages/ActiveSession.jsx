@@ -26,6 +26,7 @@ export default function ActiveSession() {
   const [draggingNodeOffset, setDraggingNodeOffset] = useState({ x: 0, y: 0 });
   const [selectedNodeId, setSelectedNodeId] = useState('center');
   const selectedNodeIdRef = useRef('center');
+  const [deletingNodeId, setDeletingNodeId] = useState(null);
   const [ideaConnections, setIdeaConnections] = useState({});
   const containerRef = useRef(null);
 
@@ -400,6 +401,32 @@ export default function ActiveSession() {
     setIsDragging(false);
     setDraggingNodeId(null);
   }, [draggingNodeId, nodePositions]);
+
+  const handleDeleteIdea = async (ideaId) => {
+    if (deletingNodeId) return;
+    setDeletingNodeId(ideaId);
+    try {
+      const res = await fetch(`http://localhost:5021/api/ideas/${ideaId}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error(`Server returned ${res.status}`);
+      setIdeas(prev => prev.filter(i => i.id !== ideaId));
+      setNodePositions(prev => {
+        const next = { ...prev };
+        delete next[ideaId];
+        return next;
+      });
+      setIdeaConnections(prev => {
+        const next = { ...prev };
+        delete next[ideaId];
+        return next;
+      });
+      if (selectedNodeId === ideaId) setSelectedNodeId('center');
+    } catch (err) {
+      console.error('Failed to delete idea:', err);
+      alert('Не удалось удалить идею');
+    } finally {
+      setDeletingNodeId(null);
+    }
+  };
 
   // Node-specific drag handlers
   const handleNodeMouseDown = (e, nodeId, currentX, currentY) => {
@@ -837,7 +864,19 @@ export default function ActiveSession() {
                           onMouseDown={(e) => handleNodeMouseDown(e, idea.id, offsetX, offsetY)}
                           onClick={(e) => { e.stopPropagation(); setSelectedNodeId(idea.id); }}
                         >
-                          <div className="bg-gradient-to-br from-emerald-50 to-teal-50 rounded-xl p-5 shadow-lg border-2 border-emerald-200 hover:border-emerald-400 hover:shadow-xl transition-all max-w-[280px]">
+                          <div className="relative bg-gradient-to-br from-emerald-50 to-teal-50 rounded-xl p-5 shadow-lg border-2 border-emerald-200 hover:border-emerald-400 hover:shadow-xl transition-all max-w-[280px]">
+                            {selectedNodeId === idea.id && (
+                              <button
+                                className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center shadow-md transition-all z-40"
+                                onClick={(e) => { e.stopPropagation(); handleDeleteIdea(idea.id); }}
+                                title="Удалить идею"
+                                disabled={deletingNodeId === idea.id}
+                              >
+                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                              </button>
+                            )}
                             <p className="text-gray-800 text-sm font-medium" style={{
                               display: '-webkit-box',
                               WebkitLineClamp: 5,

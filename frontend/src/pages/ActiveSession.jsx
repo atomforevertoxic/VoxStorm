@@ -128,7 +128,7 @@ export default function ActiveSession() {
       const payload = {
         text: text.trim(),
         sessionId: parseInt(sessionId),
-        category: extra.category || '',
+        category: extra.category || 'Общее',
         relevance: extra.relevance || 100
       };
       console.log('Sending payload:', payload);
@@ -236,6 +236,7 @@ export default function ActiveSession() {
           id: Date.now(),
           text: text,
           createdAt: new Date().toISOString(),
+          category: 'Общее',
           relevance: 100
         };
         setPendingIdeas(prev => [...prev, newPendingIdea]);

@@ -964,7 +964,7 @@ export default function ActiveSession() {
                   : 'bg-indigo-600 text-white hover:bg-indigo-700'
               }`}
             >
-              <span>{isProcessing || isLLmProcessing ? '⏳ Обработка...' : isListening ? '⏹ Стоп' : '🎤 Голосовой ввод'}</span>
+              <span>{isProcessing || isLLmProcessing ? '⏳ Обработка...' : isListening ? '⏹ Остановить и обработать' : '🎤 Голосовой ввод'}</span>
             </button>
 
             {/* Fix button - appears when there's accumulated transcript */}
@@ -981,7 +981,7 @@ export default function ActiveSession() {
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
                 </svg>
-                Зафиксировать
+                Добавить сказанное
               </button>
             )}
 
@@ -998,7 +998,7 @@ export default function ActiveSession() {
             <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
               <p className="text-gray-700">{transcript}</p>
               <p className="text-xs text-gray-400 mt-2">
-                Идея сохранится автоматически после 3 секунд молчания или по кнопке "Зафиксировать"
+                Идея сохранится автоматически после 3 секунд молчания или по кнопке «Добавить сказанное»
               </p>
             </div>
           )}

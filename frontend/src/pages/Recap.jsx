@@ -75,7 +75,10 @@ export default function Recap() {
         }
         setIsLoading(false);
       } catch (err) {
-        setError(err.message);
+        const msg = (err instanceof TypeError && err.message === 'Failed to fetch')
+          ? 'Сервер недоступен. Попробуйте позже.'
+          : err.message;
+        setError(msg);
         setIsLoading(false);
       }
     };
@@ -169,7 +172,7 @@ export default function Recap() {
       link.click();
     } catch (err) {
       console.error('Export failed:', err);
-      alert('Ошибка экспорта: ' + err.message);
+      setError('Не удалось экспортировать карту в PNG. Попробуйте ещё раз.');
     } finally {
       setIsExporting(false);
     }
@@ -207,7 +210,7 @@ export default function Recap() {
       pdf.save(`voxstorm-${sessionId}-recap.pdf`);
     } catch (err) {
       console.error('Export failed:', err);
-      alert('Ошибка экспорта: ' + err.message);
+      setError('Не удалось экспортировать в PDF. Попробуйте ещё раз.');
     } finally {
       setIsExporting(false);
     }
@@ -330,7 +333,7 @@ export default function Recap() {
       URL.revokeObjectURL(link.href);
     } catch (err) {
       console.error('Export failed:', err);
-      alert('Ошибка экспорта: ' + err.message);
+      setError('Не удалось экспортировать в DOCX. Попробуйте ещё раз.');
     } finally {
       setIsExporting(false);
     }
@@ -347,7 +350,10 @@ export default function Recap() {
   if (error) {
     return (
       <div style={{ minHeight: '100vh', backgroundColor: '#e0e7ff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ fontSize: '24px', color: '#dc2626' }}>Ошибка: {error}</div>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: '24px', color: '#dc2626', marginBottom: '16px' }}>Ошибка: {error}</div>
+          <button onClick={() => navigate('/')} style={{ padding: '12px 24px', backgroundColor: '#4f46e5', color: '#ffffff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '16px' }}>На главную</button>
+        </div>
       </div>
     );
   }

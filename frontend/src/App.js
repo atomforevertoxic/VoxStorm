@@ -2,6 +2,23 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
+function isNetworkError(err) {
+  return err instanceof TypeError && (err.message === 'Failed to fetch' || err.message.includes('NetworkError'));
+}
+
+function userMessage(err, fallback) {
+  return isNetworkError(err) ? 'Сервер недоступен. Попробуйте позже.' : (err.message || fallback);
+}
+
+async function extractErrorMessage(response, fallback) {
+  try {
+    const data = await response.json();
+    return data.error || data.message || fallback;
+  } catch {
+    return fallback;
+  }
+}
+
 export default function App() {
   const navigate = useNavigate();
   const [sessionName, setSessionName] = useState('');
@@ -69,7 +86,8 @@ export default function App() {
       });
 
       if (!response.ok) {
-        throw new Error(`Ошибка при создании сессии: ${response.status} ${response.statusText}`);
+        const msg = await extractErrorMessage(response, 'Не удалось создать сессию');
+        throw new Error(msg);
       }
 
       const result = await response.json();
@@ -78,7 +96,7 @@ export default function App() {
       navigate(`/session/${result.id}`);
     } catch (error) {
       console.error('Error creating session:', error);
-      setError(error.message);
+      setError(userMessage(error, 'Не удалось создать сессию'));
     } finally {
       setIsLoading(false);
     }
@@ -92,11 +110,14 @@ export default function App() {
       const response = await fetch(`http://localhost:5021/api/sessions/${sessionId}`, {
         method: 'DELETE'
       });
-      if (!response.ok) throw new Error('Failed to delete');
+      if (!response.ok) {
+        const msg = await extractErrorMessage(response, 'Не удалось удалить сессию. Попробуйте позже.');
+        throw new Error(msg);
+      }
       setCompletedSessions(prev => prev.filter(s => s.id !== sessionId));
     } catch (err) {
       console.error('Error deleting session:', err);
-      alert('Ошибка при удалении сессии');
+      setError(userMessage(err, 'Не удалось удалить сессию'));
     }
   };
 
@@ -106,17 +127,20 @@ export default function App() {
       const response = await fetch(`http://localhost:5021/api/sessions/${sessionId}/resume`, {
         method: 'PUT'
       });
-      if (!response.ok) throw new Error('Failed to resume');
+      if (!response.ok) {
+        const msg = await extractErrorMessage(response, 'Не удалось возобновить сессию. Возможно, она была удалена.');
+        throw new Error(msg);
+      }
       navigate(`/session/${sessionId}`);
     } catch (err) {
       console.error('Error resuming session:', err);
-      alert('Ошибка при возобновлении сессии');
+      setError(userMessage(err, 'Не удалось возобновить сессию'));
     }
   };
 
   const exportSession = (sessionId, e) => {
     e.stopPropagation();
-    navigate(`/recap/${sessionId}`);
+    navigate(`/session/${sessionId}/recap`);
   };
 
   const formatDate = (dateStr) => {

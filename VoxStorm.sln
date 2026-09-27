@@ -1,3 +1,4 @@
+﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.5.2.0
@@ -6,22 +7,49 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "backend", "backend", "{1AE8
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VoxStorm.Api", "backend\VoxStorm.Api\VoxStorm.Api.csproj", "{0797AD5F-1C42-3A9D-11AE-4F017E7CB791}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VoxStorm.Api.Tests", "backend\VoxStorm.Api.Tests\VoxStorm.Api.Tests.csproj", "{2F42FF38-1982-48DB-A231-2C4673EF4B3A}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
+		Debug|x64 = Debug|x64
+		Debug|x86 = Debug|x86
 		Release|Any CPU = Release|Any CPU
+		Release|x64 = Release|x64
+		Release|x86 = Release|x86
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
 		{0797AD5F-1C42-3A9D-11AE-4F017E7CB791}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{0797AD5F-1C42-3A9D-11AE-4F017E7CB791}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0797AD5F-1C42-3A9D-11AE-4F017E7CB791}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{0797AD5F-1C42-3A9D-11AE-4F017E7CB791}.Debug|x64.Build.0 = Debug|Any CPU
+		{0797AD5F-1C42-3A9D-11AE-4F017E7CB791}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{0797AD5F-1C42-3A9D-11AE-4F017E7CB791}.Debug|x86.Build.0 = Debug|Any CPU
 		{0797AD5F-1C42-3A9D-11AE-4F017E7CB791}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{0797AD5F-1C42-3A9D-11AE-4F017E7CB791}.Release|Any CPU.Build.0 = Release|Any CPU
+		{0797AD5F-1C42-3A9D-11AE-4F017E7CB791}.Release|x64.ActiveCfg = Release|Any CPU
+		{0797AD5F-1C42-3A9D-11AE-4F017E7CB791}.Release|x64.Build.0 = Release|Any CPU
+		{0797AD5F-1C42-3A9D-11AE-4F017E7CB791}.Release|x86.ActiveCfg = Release|Any CPU
+		{0797AD5F-1C42-3A9D-11AE-4F017E7CB791}.Release|x86.Build.0 = Release|Any CPU
+		{2F42FF38-1982-48DB-A231-2C4673EF4B3A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{2F42FF38-1982-48DB-A231-2C4673EF4B3A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{2F42FF38-1982-48DB-A231-2C4673EF4B3A}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{2F42FF38-1982-48DB-A231-2C4673EF4B3A}.Debug|x64.Build.0 = Debug|Any CPU
+		{2F42FF38-1982-48DB-A231-2C4673EF4B3A}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{2F42FF38-1982-48DB-A231-2C4673EF4B3A}.Debug|x86.Build.0 = Debug|Any CPU
+		{2F42FF38-1982-48DB-A231-2C4673EF4B3A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{2F42FF38-1982-48DB-A231-2C4673EF4B3A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{2F42FF38-1982-48DB-A231-2C4673EF4B3A}.Release|x64.ActiveCfg = Release|Any CPU
+		{2F42FF38-1982-48DB-A231-2C4673EF4B3A}.Release|x64.Build.0 = Release|Any CPU
+		{2F42FF38-1982-48DB-A231-2C4673EF4B3A}.Release|x86.ActiveCfg = Release|Any CPU
+		{2F42FF38-1982-48DB-A231-2C4673EF4B3A}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{0797AD5F-1C42-3A9D-11AE-4F017E7CB791} = {1AE8ACA6-933B-BF2A-3671-3E2EAC007D16}
+		{2F42FF38-1982-48DB-A231-2C4673EF4B3A} = {1AE8ACA6-933B-BF2A-3671-3E2EAC007D16}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {8F21040C-3F1F-4E1A-A1F8-522FAC46C24E}

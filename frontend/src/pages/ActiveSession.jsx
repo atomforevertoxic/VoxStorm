@@ -1,6 +1,23 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 
+function isNetworkError(err) {
+  return err instanceof TypeError && (err.message === 'Failed to fetch' || err.message.includes('NetworkError'));
+}
+
+function userMessage(err, fallback) {
+  return isNetworkError(err) ? 'Сервер недоступен. Попробуйте позже.' : (err.message || fallback);
+}
+
+async function extractErrorMessage(response, fallback) {
+  try {
+    const data = await response.json();
+    return data.error || data.message || fallback;
+  } catch {
+    return fallback;
+  }
+}
+
 export default function ActiveSession() {
   const { sessionId } = useParams();
   const navigate = useNavigate();
@@ -94,7 +111,7 @@ export default function ActiveSession() {
         setNodePositions(prev => ({ ...prev, ...initialPositions }));
         setIsLoading(false);
       } catch (err) {
-        setError(err.message);
+        setError(userMessage(err, 'Не удалось загрузить сессию'));
         setIsLoading(false);
       }
     };
@@ -141,9 +158,8 @@ export default function ActiveSession() {
 
       console.log('Response status:', response.status);
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Error response:', errorText);
-        throw new Error('Failed to add idea: ' + errorText);
+        const msg = await extractErrorMessage(response, 'Не удалось добавить идею');
+        throw new Error(msg);
       }
 
       const newIdea = await response.json();
@@ -174,7 +190,7 @@ export default function ActiveSession() {
       }
     } catch (err) {
       console.error('Error adding idea:', err);
-      alert('Ошибка при добавлении идеи: ' + err.message);
+      setError(userMessage(err, 'Не удалось добавить идею'));
     }
   }, [sessionId]);
 
@@ -408,7 +424,10 @@ export default function ActiveSession() {
     setDeletingNodeId(ideaId);
     try {
       const res = await fetch(`http://localhost:5021/api/ideas/${ideaId}`, { method: 'DELETE' });
-      if (!res.ok) throw new Error(`Server returned ${res.status}`);
+      if (!res.ok) {
+        const msg = await extractErrorMessage(res, 'Не удалось удалить идею');
+        throw new Error(msg);
+      }
       setIdeas(prev => prev.filter(i => i.id !== ideaId));
       setNodePositions(prev => {
         const next = { ...prev };
@@ -423,7 +442,7 @@ export default function ActiveSession() {
       if (selectedNodeId === ideaId) setSelectedNodeId('center');
     } catch (err) {
       console.error('Failed to delete idea:', err);
-      alert('Не удалось удалить идею');
+      setError(userMessage(err, 'Не удалось удалить идею'));
     } finally {
       setDeletingNodeId(null);
     }
@@ -614,10 +633,13 @@ export default function ActiveSession() {
     );
   }
 
-  if (error) {
+  if (error && !session) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
-        <div className="text-2xl text-red-600">Ошибка: {error}</div>
+        <div className="text-center">
+          <div className="text-2xl text-red-600 mb-4">Ошибка: {error}</div>
+          <button onClick={() => navigate('/')} className="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">На главную</button>
+        </div>
       </div>
     );
   }
@@ -625,6 +647,13 @@ export default function ActiveSession() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
       <div className="max-w-7xl mx-auto">
+        {/* Dismissable error banner */}
+        {error && session && (
+          <div className="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-center justify-between">
+            <span>{error}</span>
+            <button onClick={() => setError(null)} className="text-red-500 hover:text-red-700 font-bold ml-4">&times;</button>
+          </div>
+        )}
         {/* Header */}
         <div className="flex justify-between items-center mb-6">
           <button
@@ -866,7 +895,7 @@ export default function ActiveSession() {
                           onClick={(e) => { e.stopPropagation(); setSelectedNodeId(idea.id); }}
                         >
                           <div className="relative bg-gradient-to-br from-emerald-50 to-teal-50 rounded-xl p-5 shadow-lg border-2 border-emerald-200 hover:border-emerald-400 hover:shadow-xl transition-all max-w-[280px]">
-                            {selectedNodeId === idea.id && (
+                            {selectedNodeId === idea.id && !ideas.some(other => ideaConnections[other.id] === idea.id) && (
                               <button
                                 className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center shadow-md transition-all z-40"
                                 onClick={(e) => { e.stopPropagation(); handleDeleteIdea(idea.id); }}
@@ -931,7 +960,7 @@ export default function ActiveSession() {
           <div className="mb-4 flex items-center gap-4 flex-wrap">
             {/* AI Enhancement Toggle */}
             <div className={`flex items-center gap-2 px-4 py-2 rounded-lg border border-purple-200 ${isListening ? 'bg-gray-100' : 'bg-gradient-to-r from-purple-50 to-indigo-50'}`}>
-              <span className={`text-sm font-medium ${isListening ? 'text-gray-400' : 'text-purple-700'}`}>AI:</span>
+              <span className={`text-sm font-medium ${isListening ? 'text-gray-400' : 'text-purple-700'}`}>ИИ-Обработка:</span>
               <button
                 onClick={() => {
                   const newValue = !aiEnhancementEnabled;

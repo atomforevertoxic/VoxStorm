@@ -55,5 +55,15 @@ if (app.Environment.IsDevelopment())
         dbContext.Database.Migrate();
     }
 }
+else if (app.Environment.IsEnvironment("Testing"))
+{
+    using (var scope = app.Services.CreateScope())
+    {
+        var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        dbContext.Database.EnsureCreated();
+    }
+}
 
 app.Run();
+
+public partial class Program { }

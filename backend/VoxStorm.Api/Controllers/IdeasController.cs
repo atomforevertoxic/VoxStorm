@@ -54,7 +54,7 @@ namespace VoxStorm.Api.Controllers
             catch (Exception ex)
             {
                 Console.WriteLine($"Error processing transcript: {ex.Message}");
-                return StatusCode(500, new { error = "Failed to process transcript", details = ex.Message });
+                return StatusCode(500, new { error = "Не удалось обработать транскрипт с помощью ИИ", details = ex.Message });
             }
         }
 
@@ -97,7 +97,7 @@ namespace VoxStorm.Api.Controllers
 
             if (idea == null)
             {
-                return NotFound();
+                return NotFound(new { error = "Идея не найдена" });
             }
 
             return idea;
@@ -141,7 +141,7 @@ namespace VoxStorm.Api.Controllers
         {
             if (id != idea.Id)
             {
-                return BadRequest();
+                return BadRequest(new { error = "Идентификатор в запросе не совпадает с идентификатором идеи" });
             }
 
             _context.Entry(idea).State = EntityState.Modified;
@@ -154,7 +154,7 @@ namespace VoxStorm.Api.Controllers
             {
                 if (!IdeaExists(id))
                 {
-                    return NotFound();
+                    return NotFound(new { error = "Идея не найдена" });
                 }
                 else
                 {
@@ -172,7 +172,7 @@ namespace VoxStorm.Api.Controllers
             var idea = await _context.Ideas.FindAsync(id);
             if (idea == null)
             {
-                return NotFound();
+                return NotFound(new { error = "Идея не найдена" });
             }
 
             idea.PositionX = dto.PositionX;
@@ -192,10 +192,17 @@ namespace VoxStorm.Api.Controllers
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteIdea(int id)
         {
-            var idea = await _context.Ideas.FindAsync(id);
+            var idea = await _context.Ideas
+                .Include(i => i.ChildIdeas)
+                .FirstOrDefaultAsync(i => i.Id == id);
             if (idea == null)
             {
-                return NotFound();
+                return NotFound(new { error = "Идея не найдена" });
+            }
+
+            if (idea.ChildIdeas.Count > 0)
+            {
+                return Conflict(new { error = "Нельзя удалить идею, у которой есть дочерние идеи. Сначала удалите дочерние." });
             }
 
             _context.Ideas.Remove(idea);

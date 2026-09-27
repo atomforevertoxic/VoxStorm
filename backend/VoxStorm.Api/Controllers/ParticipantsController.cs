@@ -37,7 +37,7 @@ namespace VoxStorm.Api.Controllers
 
             if (participant == null)
             {
-                return NotFound();
+                return NotFound(new { error = "Участник не найден" });
             }
 
             return participant;
@@ -59,7 +59,7 @@ namespace VoxStorm.Api.Controllers
         {
             if (id != participant.Id)
             {
-                return BadRequest();
+                return BadRequest(new { error = "Идентификатор в запросе не совпадает с идентификатором участника" });
             }
 
             _context.Entry(participant).State = EntityState.Modified;
@@ -72,7 +72,7 @@ namespace VoxStorm.Api.Controllers
             {
                 if (!ParticipantExists(id))
                 {
-                    return NotFound();
+                    return NotFound(new { error = "Участник не найден" });
                 }
                 else
                 {
@@ -90,7 +90,7 @@ namespace VoxStorm.Api.Controllers
             var participant = await _context.Participants.FindAsync(id);
             if (participant == null)
             {
-                return NotFound();
+                return NotFound(new { error = "Участник не найден" });
             }
 
             _context.Participants.Remove(participant);

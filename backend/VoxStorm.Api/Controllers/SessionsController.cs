@@ -45,7 +45,7 @@ namespace VoxStorm.Api.Controllers
             var session = await _context.Sessions.FindAsync(id);
             if (session == null)
             {
-                return NotFound();
+                return NotFound(new { error = "Сессия не найдена" });
             }
 
             session.Status = "pending";
@@ -66,7 +66,7 @@ namespace VoxStorm.Api.Controllers
 
             if (session == null)
             {
-                return NotFound();
+                return NotFound(new { error = "Сессия не найдена" });
             }
 
             return session;
@@ -83,7 +83,7 @@ namespace VoxStorm.Api.Controllers
 
             if (session == null)
             {
-                return NotFound();
+                return NotFound(new { error = "Сессия не найдена" });
             }
 
             var ideas = session.Ideas.OrderBy(i => i.CreatedAt).ToList();
@@ -231,7 +231,7 @@ namespace VoxStorm.Api.Controllers
             var session = await _context.Sessions.FindAsync(id);
             if (session == null)
             {
-                return NotFound();
+                return NotFound(new { error = "Сессия не найдена" });
             }
 
             if (dto.Name != null) session.Name = dto.Name;
@@ -263,7 +263,7 @@ namespace VoxStorm.Api.Controllers
             var session = await _context.Sessions.FindAsync(id);
             if (session == null)
             {
-                return NotFound();
+                return NotFound(new { error = "Сессия не найдена" });
             }
 
             session.CenterPositionX = dto.PositionX;
@@ -286,7 +286,7 @@ namespace VoxStorm.Api.Controllers
             var session = await _context.Sessions.FindAsync(id);
             if (session == null)
             {
-                return NotFound();
+                return NotFound(new { error = "Сессия не найдена" });
             }
 
             _context.Sessions.Remove(session);
